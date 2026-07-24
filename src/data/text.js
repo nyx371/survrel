@@ -696,12 +696,44 @@ export const SMOKE_HINT = [
 ];
 
 // Misc lines --------------------------------------------------------------
+export const REST_LINES = [
+  'You sit with your back to a wall and let your breathing slow.',
+  'You rest. The ache in your legs fades to something you can carry.',
+  'You stay still and quiet. Strength comes back a little at a time.',
+  'You rub the stiffness out of your calves and roll your shoulders loose.',
+  'You close your eyes for slow counts of ten, listening between each one.',
+  'You flex your hands until the feeling comes back into your fingers.',
+  'You find a dry patch of floor and stretch your legs out. The burn in them eases.',
+  'You breathe until your heart stops working so hard.',
+  'You lean into a corner and let your weight go for a while.',
+  'You loosen your bootlaces, work your ankles, and tie them again.',
+  'You rest until your hands are steady.',
+  'You go still. The city stays quiet, and some strength comes back.',
+  'You shift your pack off, sit on it, and give your shoulders a rest.',
+  'You wait out the shaking in your legs. It passes.',
+  'You sit and do nothing, which the body needed more than anything you could carry.',
+  'You count the exits, settle on the floor, and let yourself stop.',
+];
+export const MED_LINES = [
+  'You clean the wounds and wrap them tight.',
+  'You dress the worst of it and flex the arm until the bandage sits right.',
+  'You patch yourself up, working by feel where you can’t see.',
+  'Antiseptic burns along the scrapes. You wrap them and move on.',
+];
 export const EAT_LINES = [
   'You eat slowly, watching the door.',
   'You eat all of it in one sitting.',
-  'You eat half and pack the rest away.',
+  'You eat half and pack the rest away, then eat the rest.',
+  'You eat standing up, ready to move.',
+  'You eat, and the hollow feeling pulls back a step.',
+  'You make yourself chew slowly. It goes further that way.',
 ];
-export const DRINK_LINES = ['You drink it down. Cold and metallic.', 'You drink more of it than you meant to.'];
+export const DRINK_LINES = [
+  'You drink it down. Cold and metallic.',
+  'You drink more of it than you meant to.',
+  'You drink half, cap it, and drink the other half anyway.',
+  'You rinse the dust from your mouth and swallow the rest.',
+];
 export const TOO_TIRED = [
   'Your legs refuse. You need rest, or food, before anything else.',
   'The edges of your vision gray out. Not another step without rest.',

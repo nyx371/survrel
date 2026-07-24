@@ -3,6 +3,10 @@
 // index.html so browsers fetch the new files immediately.
 export const CHANGELOG = [
   {
+    v: '0.10',
+    note: 'Resting reads differently every time: sixteen new rest lines about strength coming back, plus varied eating, drinking and first-aid lines — and no line ever repeats twice in a row.',
+  },
+  {
     v: '0.09',
     note: 'Strangers stay strangers: survivors are described by appearance until they offer you their name in conversation. Dock buttons share one height, and tapping outside the pack or map closes it.',
   },

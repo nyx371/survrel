@@ -11,7 +11,8 @@ import {
   TABLES, DISTRICTS, LOCKED_DESC, UNLOCK_DESC, SURVIVOR_ROLES, SURVIVOR_MEET, SMOKE_HINT,
   SURVIVOR_TALK_T0, SURVIVOR_TALK_T1, SURVIVOR_TALK_T2, SURVIVOR_TALK_T3,
   SURVIVOR_THANKS, SURVIVOR_NEED_LINE, EAT_LINES, DRINK_LINES, TOO_TIRED,
-  COLD_WARNING, HUNGER_WARNING, DEATH_COLD, DEATH_HUNGER, DEATH_ZED, fill,
+  COLD_WARNING, HUNGER_WARNING, DEATH_COLD, DEATH_HUNGER, DEATH_ZED,
+  REST_LINES, MED_LINES, fill,
 } from './data/text.js';
 
 const DAY_MIN = 24 * 60;
@@ -119,6 +120,20 @@ export class Game {
   live() {
     // deterministic per turn so saves replay identically
     return rngFor(this.s.seed, 'live', this.s.turn);
+  }
+
+  // pick from a pool without repeating the previous pick for that key —
+  // for lines the player can trigger back to back (rest, eat, drink)
+  pickVaried(pool, key) {
+    if (pool.length < 2) return pool[0];
+    const r = this.live();
+    this.s.lastPick = this.s.lastPick || {};
+    let idx = Math.floor(r.f() * pool.length);
+    if (idx === this.s.lastPick[key]) {
+      idx = (idx + 1 + Math.floor(r.f() * (pool.length - 1))) % pool.length;
+    }
+    this.s.lastPick[key] = idx;
+    return pool[idx];
   }
 
   markVisited() {
@@ -569,7 +584,7 @@ export class Game {
 
   doRest() {
     this.s.stats.energy = Math.min(100, this.s.stats.energy + 12);
-    this.say('You find a spot with your back to a wall and rest.', 'info');
+    this.say(this.pickVaried(REST_LINES, 'rest'), 'info');
     this.spend(COSTS.rest);
   }
 
@@ -815,13 +830,13 @@ export class Game {
       if (s.inv[itemId] <= 0) delete s.inv[itemId];
       s.stats.hunger = Math.min(100, s.stats.hunger + (def.hunger || 0));
       s.stats.energy = Math.min(100, s.stats.energy + (def.energy || 0));
-      this.say(r.pick(def.kind === 'food' ? EAT_LINES : DRINK_LINES), 'info');
+      this.say(def.kind === 'food' ? this.pickVaried(EAT_LINES, 'eat') : this.pickVaried(DRINK_LINES, 'drink'), 'info');
       this.passTime(COSTS.eat.minutes);
     } else if (def.kind === 'med') {
       s.inv[itemId] -= 1;
       if (s.inv[itemId] <= 0) delete s.inv[itemId];
       s.stats.health = Math.min(100, s.stats.health + (def.health || 0));
-      this.say('You patch yourself up as best you can.', 'info');
+      this.say(this.pickVaried(MED_LINES, 'med'), 'info');
       this.passTime(COSTS.eat.minutes);
     } else if (itemId === 'map_scrap') {
       s.inv[itemId] -= 1;
