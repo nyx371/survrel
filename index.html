@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SURVREL — a city, after</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext y='13' font-size='13'%3E%E2%9A%A1%3C/text%3E%3C/svg%3E">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="app">
+    <header>
+      <div class="brand">SURVREL</div>
+      <div class="hud">
+        <span id="hud-day" class="chip"></span>
+        <span id="hud-time" class="chip"></span>
+        <span id="hud-wx" class="chip"></span>
+      </div>
+      <button id="btn-new" class="ghost" title="New game">↻</button>
+    </header>
+
+    <div id="stats"></div>
+
+    <main>
+      <div id="danger-banner" class="hidden"></div>
+      <div class="loc">
+        <h1 id="loc-title"></h1>
+        <div id="loc-sub"></div>
+      </div>
+      <div id="desc"></div>
+      <div id="log"></div>
+    </main>
+
+    <div id="actions"></div>
+
+    <div id="panel" class="hidden"></div>
+
+    <footer>
+      <button id="btn-inv"></button>
+      <button id="btn-map"></button>
+      <span class="credit">icons: <a href="https://game-icons.net" target="_blank" rel="noopener">game-icons.net</a> (CC BY 3.0)</span>
+    </footer>
+
+    <div id="death" class="hidden"><div id="death-inner"></div></div>
+  </div>
+  <script type="module" src="src/main.js"></script>
+</body>
+</html>
