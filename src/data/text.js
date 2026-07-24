@@ -133,6 +133,16 @@ export const TABLES = {
     'You vault {debris} and don’t look back until the sound of it fades.',
     'You slip away, heart slamming, its moan trailing after you.',
   ],
+  zed_lost: [
+    'You stop, chest heaving, and listen. Nothing. You’ve lost it.',
+    'The moaning fades behind you, then the shuffling, then everything. It’s not following.',
+    'You watch your backtrail for a long moment. Empty. Safe — for the word’s current value.',
+    'No footsteps but your own. The dead have lost your scent.',
+  ],
+  zed_left: [
+    'The dead thing has shambled off after some other sound. The way is clear.',
+    'When you look again, it’s gone — drawn away by something you didn’t hear. You breathe.',
+  ],
   flee_scratch: [
     'You wrench free but its nails rake your arm — a hot, ugly line. You run anyway.',
     'It catches your sleeve. You tear loose, losing skin, and sprint.',

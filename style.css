@@ -16,7 +16,12 @@
   --talk: #b9a7d6;
 }
 
-* { margin: 0; padding: 0; box-sizing: border-box; }
+* {
+  margin: 0; padding: 0; box-sizing: border-box;
+  -webkit-user-select: none; user-select: none;
+  -webkit-touch-callout: none;
+  touch-action: manipulation;
+}
 
 html, body { height: 100%; }
 body {
@@ -122,6 +127,7 @@ main {
 .log-line { color: var(--ink-dim); }
 .log-line.log-danger { color: var(--danger); }
 .log-line.log-loot { color: var(--loot); }
+.log-line.log-safe { color: var(--accent); font-weight: 700; }
 .log-line.log-warn { color: var(--hunger); }
 .log-line.log-talk { color: var(--talk); }
 .log-line.log-system { color: var(--ink-faint); font: 12px 'Courier New', monospace; }

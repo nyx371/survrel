@@ -3,6 +3,10 @@
 // index.html so browsers fetch the new files immediately.
 export const CHANGELOG = [
   {
+    v: '0.03',
+    note: 'The game now tells you plainly when you’ve shaken the dead off, and the page no longer zooms or selects text when you tap around.',
+  },
+  {
     v: '0.02',
     note: 'Prose-first mobile layout: the scene text keeps the screen, movement is a compact compass row, and new versions now reach your browser without a stale cache.',
   },

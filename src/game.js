@@ -274,6 +274,7 @@ export class Game {
       if (zeds.length > 1) this.say(`There are ${zeds.length} of them.`, 'danger');
     } else if (!zeds.length && this.s.mode === 'encounter') {
       this.s.mode = 'explore';
+      this.say(this.live().pick(TABLES.zed_left), 'safe');
     }
   }
 
@@ -686,6 +687,9 @@ export class Game {
     this.s.mode = 'explore';
     this.stepZombies(1);
     this.checkEncounter();
+    if (this.s.mode !== 'encounter') {
+      this.say(r.pick(TABLES.zed_lost), 'safe');
+    }
     this.describeHere();
   }
 
