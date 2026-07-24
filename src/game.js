@@ -63,7 +63,7 @@ export class Game {
       zedKnownDay: 0, // radio perk: day zombie positions were shared
     };
     this.markVisited();
-    this.say(`Day 1. ${this.timeString()}. You are alone, hungry, and alive — one of those is fixable right now.`, 'system');
+    this.say(`Day 1. ${this.timeString()}. The city is quiet. You need food, warmth, and somewhere safe to sleep.`, 'system');
     this.describeHere(true);
     this.save();
   }
@@ -545,12 +545,12 @@ export class Game {
 
   doRest() {
     this.s.stats.energy = Math.min(100, this.s.stats.energy + 12);
-    this.say('You find a spot with your back covered and let your legs stop shaking.', 'info');
+    this.say('You find a spot with your back to a wall and rest.', 'info');
     this.spend(COSTS.rest);
   }
 
   doWait() {
-    this.say('You wait, and listen, and let the city do whatever it is doing.', 'info');
+    this.say('You wait and listen. Nothing approaches.', 'info');
     this.spend(COSTS.wait);
   }
 
@@ -581,7 +581,7 @@ export class Game {
       if (zeds.length) {
         s.stats.health = Math.max(1, s.stats.health - 12);
         gain = Math.floor(gain / 2);
-        this.say('You wake to a sound that is already too close — scrambling up, heart hammering.', 'danger');
+        this.say('A dragging step wakes you — close, and inside. You scramble up.', 'danger');
       }
     }
     s.stats.energy = Math.min(100, s.stats.energy + gain);
@@ -657,7 +657,7 @@ export class Game {
       case 'cook': {
         this.s.stats.hunger = Math.min(100, this.s.stats.hunger + 40);
         this.s.stats.warmth = Math.min(100, this.s.stats.warmth + 15);
-        this.say(`${sv.name} ladles you a bowl of the eternal stew. It is the best thing in the ruined world. (+food, +warmth)`, 'loot');
+        this.say(`${sv.name} ladles you a bowl from the stockpot. You eat it hot. (+food, +warmth)`, 'loot');
         break;
       }
       case 'scavenger': give(r.pick(['crowbar', 'flashlight', 'rope', 'map_scrap'])); break;
@@ -683,8 +683,8 @@ export class Game {
     this.s.fireUntil = this.totalMinutes + 90;
     this.s.noise += 2;
     this.say(this.indoors
-      ? 'You build a small fire in a can and feed it slowly. Heat crawls back into your hands.'
-      : 'You get a fire going in the lee of a wall. The light feels loud out here, but the warmth is worth it.', 'info');
+      ? 'You build a small fire in a can and feed it slowly. Heat comes back into your hands.'
+      : 'You get a fire going in the lee of a wall. The light shows for a block in every direction.', 'info');
     this.spend(COSTS.fire);
   }
 

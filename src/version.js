@@ -3,6 +3,10 @@
 // index.html so browsers fetch the new files immediately.
 export const CHANGELOG = [
   {
+    v: '0.07',
+    note: 'Voice pass: the whole corpus rewritten to a plainer, harder register — no poetic metaphor, no personified objects, no narrator commentary. The dread is in what gets described, not how.',
+  },
+  {
     v: '0.06',
     note: 'The hunt: the dead now track you between places, and the text tells you when it’s the same one still coming. A darker, larger city — hotels, theaters, subways, cemeteries, funeral homes and more — plus smoke over survivor shelters so the living can be found.',
   },
