@@ -65,6 +65,7 @@ export class Game {
     this.markVisited();
     this.say(`Day 1. ${this.timeString()}. You are alone, hungry, and alive — one of those is fixable right now.`, 'system');
     this.describeHere(true);
+    this.save();
   }
 
   // ---- helpers ----------------------------------------------------------
