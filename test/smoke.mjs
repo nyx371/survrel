@@ -41,7 +41,7 @@ for (const seed of ['alpha', 'beta', 'gamma']) {
     }
   }
   const sv = genSurvivors(seed);
-  check(sv.length === 6, `6 survivors generated (got ${sv.length})`);
+  check(sv.length === 8, `8 survivors generated (got ${sv.length})`);
   for (const s of sv) {
     const cell = getCell(seed, s.home.x, s.home.y);
     check(cell.buildings[s.home.b], `survivor ${s.name} home building exists`);

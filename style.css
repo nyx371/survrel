@@ -253,7 +253,9 @@ button.mini-dim { color: var(--ink-faint); }
 }
 .mc-unknown { background: transparent; border: 1px solid rgba(42, 48, 45, 0.4); }
 .mc-street_h, .mc-street_v, .mc-intersection { background: #2c332f; }
-.mc-alley, .mc-courtyard, .mc-parking, .mc-plaza { background: #232925; }
+.mc-alley, .mc-courtyard, .mc-parking, .mc-plaza, .mc-market, .mc-underpass, .mc-construction { background: #232925; }
+.mc-ruins { background: #2a2523; }
+.mc-cemetery { background: #262330; }
 .mc-park { background: #24322a; }
 .mc-known { opacity: 0.45; }
 .mc-here { outline: 2px solid var(--accent); color: var(--accent); font-size: 11px; z-index: 1; }

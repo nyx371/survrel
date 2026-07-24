@@ -46,14 +46,15 @@ export function streetNameH(seed, y) {
 
 const INTERIOR_KINDS = [
   ['alley', 3], ['courtyard', 2], ['park', 1.5], ['parking', 1.5], ['plaza', 0.7],
+  ['ruins', 1.5], ['market', 1], ['underpass', 1], ['cemetery', 0.8], ['construction', 1],
 ];
 
 const DISTRICT_BUILDINGS = {
-  downtown: [['office', 4], ['cafe', 2], ['pharmacy', 1], ['police', 1], ['bookshop', 1], ['clinic', 1]],
-  residential: [['apartment', 5], ['grocery', 1.5], ['laundromat', 1], ['school', 1], ['church', 1], ['clinic', 0.7], ['cafe', 0.7]],
-  commercial: [['grocery', 3], ['cafe', 2], ['hardware', 2], ['pharmacy', 1.5], ['bookshop', 1], ['laundromat', 1], ['office', 1]],
-  industrial: [['warehouse', 4], ['gasstation', 1.5], ['hardware', 1.5], ['office', 0.7], ['police', 0.7]],
-  oldtown: [['apartment', 2], ['church', 1.5], ['cafe', 1.5], ['bookshop', 1.5], ['clinic', 1], ['grocery', 1], ['pharmacy', 0.7]],
+  downtown: [['office', 4], ['cafe', 2], ['hotel', 1.5], ['pharmacy', 1], ['police', 1], ['bookshop', 1], ['clinic', 1], ['theater', 1], ['bar', 1], ['subway', 1]],
+  residential: [['apartment', 5], ['grocery', 1.5], ['laundromat', 1], ['school', 1], ['church', 1], ['bakery', 1], ['clinic', 0.7], ['cafe', 0.7], ['bar', 0.5]],
+  commercial: [['grocery', 3], ['cafe', 2], ['hardware', 2], ['pharmacy', 1.5], ['butcher', 1], ['bakery', 1], ['bar', 1], ['bookshop', 1], ['laundromat', 1], ['office', 1], ['subway', 0.7]],
+  industrial: [['warehouse', 4], ['gasstation', 1.5], ['hardware', 1.5], ['bar', 0.7], ['office', 0.7], ['police', 0.7], ['subway', 0.7]],
+  oldtown: [['apartment', 2], ['church', 1.5], ['cafe', 1.5], ['bookshop', 1.5], ['funeral', 1], ['bar', 1], ['clinic', 1], ['grocery', 1], ['hotel', 0.7], ['theater', 0.7], ['butcher', 0.7], ['pharmacy', 0.7]],
 };
 
 // ---- cells --------------------------------------------------------------
@@ -72,7 +73,9 @@ export function getCell(seed, x, y) {
     cell.type = r.weighted(INTERIOR_KINDS);
     cell.name = {
       alley: 'Back alley', courtyard: 'Courtyard', park: 'Overgrown park',
-      parking: 'Parking lot', plaza: 'Plaza',
+      parking: 'Parking lot', plaza: 'Plaza', ruins: 'Collapsed block',
+      market: 'Market square', underpass: 'Underpass', cemetery: 'Old cemetery',
+      construction: 'Construction site',
     }[cell.type];
   } else {
     cell.type = bt;
@@ -202,6 +205,11 @@ const OUTDOOR_LOOT = {
   park: [['berries', 2], ['water', 0.7], ['rope', 0.4]],
   parking: [['soda', 1], ['battery', 1], ['crowbar', 0.5], ['flashlight', 0.5], ['map_scrap', 0.5]],
   plaza: [['soda', 1], ['cracker', 1], ['chocolate', 0.5], ['map_scrap', 0.5]],
+  ruins: [['crowbar', 1], ['rope', 1], ['matches', 0.7], ['key', 0.7], ['pills', 0.5]],
+  market: [['canned_food', 1.5], ['cracker', 1], ['berries', 1], ['knife', 0.5], ['scarf', 0.5]],
+  underpass: [['matches', 1], ['soda', 1], ['sleeping_bag', 0.6], ['flashlight', 0.5], ['knife', 0.4]],
+  cemetery: [['matches', 1], ['key', 0.7], ['scarf', 0.6], ['flashlight', 0.4]],
+  construction: [['rope', 1.5], ['crowbar', 1], ['battery', 0.7], ['jacket', 0.5]],
   street_h: [['soda', 0.7], ['cracker', 0.7], ['battery', 0.5], ['map_scrap', 0.4], ['bandage', 0.4]],
   street_v: [['soda', 0.7], ['cracker', 0.7], ['battery', 0.5], ['map_scrap', 0.4], ['bandage', 0.4]],
   intersection: [['soda', 0.7], ['map_scrap', 0.6], ['battery', 0.5]],
@@ -253,7 +261,7 @@ export function genSurvivors(seed) {
   const survivors = [];
   const used = new Set([`${START.x},${START.y}`]);
   let attempts = 0;
-  while (survivors.length < 6 && attempts < 400) {
+  while (survivors.length < 8 && attempts < 400) {
     attempts++;
     const x = r.int(0, CITY_W - 1), y = r.int(0, CITY_H - 1);
     if (used.has(`${x},${y}`)) continue;

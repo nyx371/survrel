@@ -8,7 +8,7 @@ import {
   initialZombies, START, CITY_W, CITY_H, streetNameV, streetNameH,
 } from './world.js';
 import {
-  TABLES, DISTRICTS, LOCKED_DESC, UNLOCK_DESC, SURVIVOR_ROLES, SURVIVOR_MEET,
+  TABLES, DISTRICTS, LOCKED_DESC, UNLOCK_DESC, SURVIVOR_ROLES, SURVIVOR_MEET, SMOKE_HINT,
   SURVIVOR_TALK_T0, SURVIVOR_TALK_T1, SURVIVOR_TALK_T2, SURVIVOR_TALK_T3,
   SURVIVOR_THANKS, SURVIVOR_NEED_LINE, EAT_LINES, DRINK_LINES, TOO_TIRED,
   COLD_WARNING, HUNGER_WARNING, DEATH_COLD, DEATH_HUNGER, DEATH_ZED, fill,
@@ -147,6 +147,13 @@ export class Game {
       }
     } else {
       parts = describeCell(this.s.seed, this.here, vc, this.weather);
+      // the living leave signs: smoke over a survivor's unvisited shelter
+      for (const sv of this.s.survivors) {
+        if (!sv.met && sv.home.x === this.s.pos.x && sv.home.y === this.s.pos.y) {
+          const b = this.here.buildings[sv.home.b];
+          if (b) parts.push(fill(this.live(), this.live().pick(SMOKE_HINT), { bname: b.name }));
+        }
+      }
     }
     const sv = this.survivorHere();
     if (sv) {
@@ -243,13 +250,16 @@ export class Game {
 
   stepOneZombie(z, r) {
     const p = this.s.pos;
+    if (z.hunt > 0) z.hunt -= 1;
     if (z.b === null) {
       const dist = Math.abs(z.x - p.x) + Math.abs(z.y - p.y);
       const smell = this.s.noise > 0 ? 3 : 2;
-      if (p.b === null && dist > 0 && dist <= smell && r.chance(0.7)) {
-        // shamble toward the player
+      const hunting = z.hunt > 0 && dist <= 6;
+      if (p.b === null && dist > 0 && (hunting || (dist <= smell && r.chance(0.7)))) {
+        // shamble toward the player; hunters do not lose the trail
         const dx = Math.sign(p.x - z.x), dy = Math.sign(p.y - z.y);
         if (dx !== 0 && (dy === 0 || r.chance(0.5))) z.x += dx; else if (dy !== 0) z.y += dy;
+        if (z.hunt > 0 && locKey(z) === locKey(p)) z.followed = true;
       } else if (r.chance(0.45)) {
         const n = r.pick(neighbors(z.x, z.y));
         z.x = n.x; z.y = n.y;
@@ -265,12 +275,13 @@ export class Game {
       const bld = cell.buildings[z.b];
       if (!bld) { z.b = null; z.r = null; return; }
       const inSameBuilding = p.x === z.x && p.y === z.y && p.b === z.b;
-      if (inSameBuilding && z.r !== p.r && r.chance(0.6)) {
+      if (inSameBuilding && z.r !== p.r && (z.hunt > 0 || r.chance(0.6))) {
         // move one room along adjacency toward the player (greedy: any adjacent
         // room; small building graphs make this good enough)
         const room = bld.rooms[z.r];
         const next = room.adj.find((a) => a === p.r);
         z.r = next !== undefined ? next : r.pick(room.adj.length ? room.adj : [z.r]);
+        if (z.hunt > 0 && locKey(z) === locKey(p)) z.followed = true;
       } else if (z.r === 0 && r.chance(0.3)) {
         z.b = null; z.r = null;
       } else if (r.chance(0.4)) {
@@ -291,8 +302,10 @@ export class Game {
     if (zeds.length && this.s.mode !== 'encounter') {
       this.s.mode = 'encounter';
       const r = this.live();
-      this.say(fill(r, r.pick(TABLES.zed_appear)), 'danger');
+      const followed = zeds.some((z) => z.followed);
+      this.say(fill(r, r.pick(followed ? TABLES.zed_chase : TABLES.zed_appear)), 'danger');
       if (zeds.length > 1) this.say(`There are ${zeds.length} of them.`, 'danger');
+      for (const z of zeds) { z.hunt = 4; z.followed = false; }
     } else if (!zeds.length && this.s.mode === 'encounter') {
       this.s.mode = 'explore';
       this.say(this.live().pick(TABLES.zed_left), 'safe');
@@ -677,8 +690,9 @@ export class Game {
 
   doFlee(arg) {
     const r = this.live();
+    const pursuers = this.zombiesHere();
     // scratched?
-    const scratchChance = this.s.stats.energy < 30 ? 0.45 : this.zombiesHere().length > 1 ? 0.35 : 0.2;
+    const scratchChance = this.s.stats.energy < 30 ? 0.45 : pursuers.length > 1 ? 0.35 : 0.2;
     if (r.chance(scratchChance)) {
       this.s.stats.health = Math.max(1, this.s.stats.health - r.int(6, 14));
       this.say(r.pick(TABLES.flee_scratch), 'danger');
@@ -689,6 +703,7 @@ export class Game {
     this.s.stats.energy = Math.max(0, this.s.stats.energy - COSTS.flee.energy);
 
     // move through the chosen exit without triggering the normal spend loop
+    const wasOutdoors = !this.indoors;
     if (!this.indoors) {
       const d = { north: [0, -1], east: [1, 0], south: [0, 1], west: [-1, 0] }[arg];
       if (d) this.s.pos = { x: this.s.pos.x + d[0], y: this.s.pos.y + d[1], b: null, r: null };
@@ -697,6 +712,18 @@ export class Game {
       this.s.pos = { ...this.s.pos, b: null, r: null };
     } else {
       this.s.pos = { ...this.s.pos, r: arg };
+    }
+
+    // the hunt: a marked pursuer may come straight after you. Ducking through
+    // a door (changing indoors/outdoors) is harder to follow than open ground.
+    const doorBetween = wasOutdoors !== !this.indoors || !wasOutdoors;
+    for (const z of pursuers) {
+      if (z.hunt > 0 && r.chance(doorBetween ? 0.25 : 0.45)) {
+        z.x = this.s.pos.x; z.y = this.s.pos.y; z.b = this.s.pos.b; z.r = this.s.pos.r;
+        z.followed = true;
+      } else {
+        z.hunt = 0; // it lost you in the sprint
+      }
     }
     this.passTime(COSTS.flee.minutes);
     if (this.s.mode === 'dead') return;
@@ -766,7 +793,8 @@ export class Game {
         const known = !!this.s.known[k];
         if (!visited && !known) { cells.push(null); continue; }
         const cell = getCell(this.s.seed, x, y);
-        const sv = this.s.survivors.find((v) => v.met && v.home.x === x && v.home.y === y);
+        // a survivor shows on the map once met, or once you've seen the smoke
+        const sv = this.s.survivors.find((v) => (v.met || visited) && v.home.x === x && v.home.y === y);
         const zeds = this.s.zedKnownDay >= this.s.day
           ? this.s.zombies.filter((z) => z.x === x && z.y === y).length : 0;
         cells.push({
