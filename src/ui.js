@@ -11,11 +11,11 @@ const $ = (sel) => document.querySelector(sel);
 const WX_ICON = { clear: 'day', overcast: 'day', rain: 'rain', snap: 'snow' };
 const WX_LABEL = { clear: 'clear', overcast: 'overcast', rain: 'rain', snap: 'cold snap' };
 const ARROWS = { north: '↑', east: '→', south: '↓', west: '←' };
-const STD_ORDER = ['search', 'fire', 'rest', 'sleep'];
+const STD_ORDER = ['search', 'rest', 'fire', 'sleep'];
 const STD_META = {
   search: { icon: 'search', label: 'Search' },
-  fire: { icon: 'fire', label: 'Fire' },
   rest: { icon: 'wait', label: 'Rest' },
+  fire: { icon: 'fire', label: 'Light a fire' },
   sleep: { icon: 'sleep', label: 'Sleep' },
 };
 
@@ -159,8 +159,6 @@ export class UI {
       <button class="std-btn" data-id="${id}" ${disabled ? 'disabled' : ''}
         title="${meta.label}${sub ? ' — ' + sub : ''}${act && act.cost.minutes ? ' · ' + act.cost.minutes + '′' : ''}">
         ${icon(meta.icon)}
-        <span class="std-label">${meta.label}</span>
-        ${sub ? `<span class="std-sub">${sub}</span>` : ''}
         ${act ? costBadge(act.cost, gain) : ''}
       </button>`;
     }).join('') : '';
@@ -173,8 +171,10 @@ export class UI {
 
     // pack & map
     const invCount = Object.values(g.s.inv).reduce((a, b) => a + b, 0);
-    $('#btn-inv').innerHTML = `${icon('backpack')}<span class="std-label">Pack</span><span class="std-sub">${invCount}</span>`;
-    $('#btn-map').innerHTML = `${icon('map')}<span class="std-label">Map</span>`;
+    $('#btn-inv').innerHTML = `${icon('backpack')}<span class="badge badge-count">${invCount}</span>`;
+    $('#btn-inv').title = `Pack — ${invCount} item${invCount === 1 ? '' : 's'}`;
+    $('#btn-map').innerHTML = `${icon('map')}`;
+    $('#btn-map').title = 'Map';
     $('#btn-inv').classList.toggle('active', this.panel === 'inv');
     $('#btn-map').classList.toggle('active', this.panel === 'map');
   }

@@ -158,14 +158,20 @@ button.menu-item:hover { border-color: var(--accent); }
 .badge svg.gi { width: 0.95em; height: 0.95em; }
 .badge-gain { color: var(--loot); }
 
-#ctx { display: flex; flex-wrap: wrap; gap: 6px 8px; padding-top: 4px; }
+#ctx {
+  display: flex; flex-wrap: nowrap; gap: 8px; padding: 6px 2px 2px;
+  overflow-x: auto; overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+#ctx::-webkit-scrollbar { display: none; }
 button.chip-act {
-  position: relative;
-  display: inline-flex; align-items: center; gap: 7px;
+  position: relative; flex: none;
+  display: inline-flex; align-items: center; gap: 8px;
   background: var(--panel-2); border: 1px solid var(--line); color: var(--ink);
-  border-radius: 999px; padding: 7px 13px;
-  font: inherit; font-size: 13.5px; cursor: pointer;
-  max-width: 100%;
+  border-radius: 999px; padding: 8px 14px;
+  font: inherit; font-size: 14.5px; cursor: pointer;
+  max-width: 85vw;
 }
 button.chip-act span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 button.chip-act svg.gi { color: var(--accent); width: 1.2em; height: 1.2em; }
@@ -183,7 +189,11 @@ button.nav-btn {
   min-width: 0;
 }
 button.nav-btn:hover:not(:disabled) { border-color: var(--accent); }
-.nav-arrow { font-size: 15px; line-height: 1.1; color: var(--accent); }
+.nav-arrow {
+  font: 900 22px/1.1 system-ui, -apple-system, sans-serif;
+  color: var(--accent);
+  -webkit-text-stroke: 1px var(--accent);
+}
 .nav-dest {
   font-size: 9.5px; color: var(--ink-faint); line-height: 1.2;
   max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
@@ -194,17 +204,16 @@ button.nav-btn:hover:not(:disabled) { border-color: var(--accent); }
 #std-acts:empty { display: none; }
 button.std-btn {
   position: relative;
-  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px;
+  display: flex; align-items: center; justify-content: center;
   background: var(--panel-2); border: 1px solid var(--line); color: var(--ink);
-  border-radius: 10px; padding: 7px 4px 5px; cursor: pointer; font: inherit;
-  min-width: 52px;
+  border-radius: 10px; padding: 10px 4px; cursor: pointer; font: inherit;
+  min-width: 46px; min-height: 46px;
 }
-button.std-btn svg.gi { width: 1.3em; height: 1.3em; color: var(--accent); }
+button.std-btn svg.gi { width: 1.7em; height: 1.7em; color: var(--accent); }
 button.std-btn:hover:not(:disabled) { border-color: var(--accent); }
 button.std-btn:disabled { opacity: 0.4; cursor: default; }
-button.std-btn.active { border-color: var(--accent); color: var(--accent); }
-.std-label { font-size: 10.5px; line-height: 1.2; }
-.std-sub { font-size: 8.5px; color: var(--ink-faint); line-height: 1.1; max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+button.std-btn.active { border-color: var(--accent); }
+.badge-count { color: var(--ink-dim); }
 
 /* panel (inventory / map) ------------------------------------------------ */
 #panel {

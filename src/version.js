@@ -3,6 +3,10 @@
 // index.html so browsers fetch the new files immediately.
 export const CHANGELOG = [
   {
+    v: '0.05',
+    note: 'Dock polish: bolder compass arrows, icon-only standard buttons in a fixed row (pack · search · rest · fire · sleep · map), bigger chip text, and room actions slide sideways instead of stacking.',
+  },
+  {
     v: '0.04',
     note: 'One story stream: everything that happens flows into a single scrollable journal, with a fixed action dock below — compass row plus standard actions in steady slots, energy costs on every button.',
   },
