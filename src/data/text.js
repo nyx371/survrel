@@ -53,7 +53,7 @@ export const TABLES = {
   intersection_open: [
     'The intersection of {streetname} and {streetname2}. {skyline}. A tangle of {debris} blocks one corner.',
     'Two roads cross here — {streetname} and {streetname2}. Street signs still name them for nobody. {skyline}.',
-    '{streetname} meets {streetname2} at a wide, empty crossing. {debris} marks where traffic died mid-turn.',
+    '{streetname} meets {streetname2} at a wide, empty crossing. Traffic died mid-turn here, leaving {debris} where the lanes tangle.',
   ],
   alley_open: [
     'A narrow alley squeezed between {decay} walls. Dumpsters line one side, lids frozen open. It smells of {smell}.',
