@@ -61,7 +61,7 @@ export class Game {
       searched: {},
       unlocked: {},
       zombies: initialZombies(seed),
-      survivors: genSurvivors(seed).map((sv) => ({ ...sv, trust: 0, met: false, given: 0, giftDay: 0 })),
+      survivors: genSurvivors(seed).map((sv) => ({ ...sv, trust: 0, met: false, introduced: false, given: 0, giftDay: 0 })),
       noise: 0,
       mode: 'explore', // explore | encounter | talk | dead
       talkTo: null,
@@ -171,8 +171,10 @@ export class Game {
       if (!sv.met) {
         const r = this.live();
         parts.push(r.pick(SURVIVOR_MEET));
-        parts.push(fill(r, role.intro, { name: sv.name }) + ` This is ${sv.name}, ${sv.trait} — a ${role.label}.`);
+        parts.push(`A stranger, ${sv.trait}. ${role.look}`);
         sv.met = true;
+      } else if (!sv.introduced) {
+        parts.push(`The stranger is here, ${sv.trait}. ${role.look}`);
       } else {
         parts.push(`${sv.name} the ${role.label} is here.`);
       }
@@ -397,7 +399,7 @@ export class Game {
 
     const sv = this.survivorHere();
     if (sv && sv.met) {
-      acts.push({ id: 'talk', arg: sv.id, icon: 'talk', label: `Talk to ${sv.name}`, cost: COSTS.talk });
+      acts.push({ id: 'talk', arg: sv.id, icon: 'talk', label: sv.introduced ? `Talk to ${sv.name}` : 'Talk to the stranger', cost: COSTS.talk });
     }
 
     if ((s.inv.matches || 0) > 0 && this.totalMinutes > s.fireUntil) {
@@ -618,8 +620,13 @@ export class Game {
     if (!sv) return;
     this.s.mode = 'talk';
     this.s.talkTo = id;
-    const pool = [SURVIVOR_TALK_T0, SURVIVOR_TALK_T1, SURVIVOR_TALK_T2, SURVIVOR_TALK_T3][sv.trust] || SURVIVOR_TALK_T3;
     const r = this.live();
+    const role = SURVIVOR_ROLES[sv.role];
+    if (!sv.introduced) {
+      sv.introduced = true;
+      this.say('They look you over for a long moment, then offer a name. ' + fill(r, role.intro, { name: sv.name }), 'talk');
+    }
+    const pool = [SURVIVOR_TALK_T0, SURVIVOR_TALK_T1, SURVIVOR_TALK_T2, SURVIVOR_TALK_T3][sv.trust] || SURVIVOR_TALK_T3;
     this.say(`${sv.name}: ` + r.pick(pool), 'talk');
     if (sv.trust < 3) {
       this.say(SURVIVOR_NEED_LINE[sv.need] || `They could use ${itemName(sv.need).toLowerCase()}.`, 'talk');
@@ -888,6 +895,10 @@ export class Game {
       const g = Object.create(Game.prototype);
       g.seed = s.seed;
       g.s = s;
+      // migrate pre-introduction saves: names already shown count as introduced
+      if (Array.isArray(s.survivors)) {
+        for (const sv of s.survivors) { if (sv.introduced === undefined) sv.introduced = sv.met; }
+      }
       // migrate pre-feed saves: give log entries sequence numbers
       if (Array.isArray(s.log)) {
         let seq = 0;

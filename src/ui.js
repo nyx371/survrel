@@ -275,4 +275,11 @@ export class UI {
     this.renderDock();
     this.renderPanel();
   }
+
+  closePanel() {
+    if (!this.panel) return;
+    this.panel = null;
+    this.renderDock();
+    this.renderPanel();
+  }
 }

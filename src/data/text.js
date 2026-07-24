@@ -607,40 +607,48 @@ export const SURVIVOR_TRAIT = [
   'gray with tiredness but steady', 'young, and trying hard not to look it',
   'who keeps a hand near a wrench at all times', 'with a voice worn down to a whisper',
 ];
+// look: what you see before they trust you with a name. intro: the
+// introduction line once they give it (first conversation).
 export const SURVIVOR_ROLES = {
   medic: {
     label: 'medic', icon: 'medkit',
-    intro: '{name} was a nurse, before. Their corner is neat: bandage rolls in tins, instruments boiled and lined up on a cloth.',
+    look: 'Their corner is kept neat: bandage rolls in tins, instruments boiled and laid out on a cloth.',
+    intro: '“{name}. I was a nurse, before.”',
     tip: 'clinics and pharmacies — and check the school, there’s a nurse’s office',
     perk3: 'patches you up whenever you visit',
   },
   scavenger: {
     label: 'scavenger', icon: 'backpack',
-    intro: '{name} knows every unlooted corner left in this city, and trades that knowledge carefully.',
+    look: 'Their gear is ranked and ordered — salvage sorted into pouches, a street map folded to a worn crease.',
+    intro: '“{name}. I find things. It’s a living, in a manner of speaking.”',
     tip: 'high shelves in the warehouse district — nobody loots what they can’t reach',
     perk3: 'marks rich spots on your map',
   },
   cook: {
     label: 'cook', icon: 'hunger',
-    intro: '{name} keeps a stockpot going over a can-fire. It smells better than anything has in months.',
+    look: 'A stockpot steams over a can-fire. It smells better than anything has in months.',
+    intro: '“{name}. I used to feed two hundred a night. Now it’s whoever makes it to the door.”',
     tip: 'café pantries and the school cafeteria — big kitchens hide big tins',
     perk3: 'feeds you a hot meal whenever you visit',
   },
   radio_op: {
     label: 'radio operator', icon: 'radio',
-    intro: '{name} nurses a hand-crank radio, scanning static for voices. Sometimes, they say, there are voices.',
+    look: 'A hand-crank radio sits on a crate, tuned between stations, hissing.',
+    intro: '“{name}. I listen. Somebody has to be listening when it comes.”',
     tip: 'where the dead are drifting — they follow noise, so listen before you cross',
     perk3: 'warns you where the dead are thickest',
   },
   watchman: {
     label: 'watchman', icon: 'flashlight',
-    intro: '{name} keeps watch from a high window, with a flask of cold tea and a clear view of three streets.',
+    look: 'They sit back from a high window with a flask of cold tea and a clear view of three streets.',
+    intro: '“{name}. I keep watch. It needs doing.”',
     tip: 'moving at dawn — the dead go torpid in the cold hours',
     perk3: 'lets you sleep under their watch, safe as it gets',
   },
   mechanic: {
     label: 'mechanic', icon: 'crowbar',
-    intro: '{name} is halfway inside an engine that will never run again.',
+    look: 'They are halfway inside an engine that will never run again, tools laid out in strict order.',
+    intro: '“{name}. Things still break. That part hasn’t changed.”',
     tip: 'garages and loading docks — toolboxes get overlooked',
     perk3: 'keeps your gear in good repair',
   },

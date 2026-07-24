@@ -3,6 +3,10 @@
 // index.html so browsers fetch the new files immediately.
 export const CHANGELOG = [
   {
+    v: '0.09',
+    note: 'Strangers stay strangers: survivors are described by appearance until they offer you their name in conversation. Dock buttons share one height, and tapping outside the pack or map closes it.',
+  },
+  {
     v: '0.08',
     note: 'Encounters rebuilt: choose how you escape — slip away (cheap, riskier), bolt (costly, hard to catch or follow), or shove it down and run (usually ends the pursuit). When the dead connect, the text says so outright, with the damage — and a bad enough wound can kill you.',
   },

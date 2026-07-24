@@ -28,6 +28,15 @@ const ui = new UI(game, {
 document.getElementById('btn-inv').addEventListener('click', () => ui.togglePanel('inv'));
 document.getElementById('btn-map').addEventListener('click', () => ui.togglePanel('map'));
 
+// tap anywhere outside the pack/map sheet to close it (pointerdown fires
+// before click handlers mutate the DOM, so containment checks stay valid)
+document.addEventListener('pointerdown', (e) => {
+  const panel = document.getElementById('panel');
+  if (panel.classList.contains('hidden')) return;
+  if (e.target.closest('#panel') || e.target.closest('#btn-inv') || e.target.closest('#btn-map')) return;
+  ui.closePanel();
+});
+
 // menu ----------------------------------------------------------------------
 const menu = document.getElementById('menu');
 document.getElementById('menu-version').textContent = `v${VERSION}`;
