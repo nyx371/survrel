@@ -179,6 +179,15 @@ button.chip-act:hover:not(:disabled) { border-color: var(--accent); }
 button.chip-act:disabled { opacity: 0.45; cursor: default; }
 button.chip-flee { border-color: rgba(201, 79, 67, 0.6); font-weight: 700; }
 button.chip-flee svg.gi { color: var(--danger); }
+button.chip-act.selected { border-color: var(--danger); background: rgba(201, 79, 67, 0.16); }
+
+#nav.nav-flee { grid-template-columns: 1fr 1fr; }
+button.nav-exit {
+  flex-direction: row; gap: 7px; padding: 9px 10px;
+  border-color: rgba(201, 79, 67, 0.5);
+}
+button.nav-exit svg.gi { color: var(--danger); width: 1.2em; height: 1.2em; }
+.nav-exit-label { font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 #nav { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; padding-top: 4px; }
 button.nav-btn {

@@ -189,15 +189,25 @@ export const TABLES = {
     'It drags itself closer.',
   ],
   flee_ok: [
-    'You break for the gap and make it, boots skidding on grit.',
+    'You break for the gap and make it, boots skidding on grit. It never touches you.',
     'You feint left, go right, and are gone before it finishes turning.',
-    'You vault {debris} and keep running until the sound of it fades.',
-    'You slip away, its moan trailing after you.',
+    'You vault {debris} and keep running until the sound of it fades. Untouched.',
+    'You slip away clean, its moan trailing after you.',
   ],
-  flee_scratch: [
-    'You wrench free, but its nails rake your arm and draw blood. You run anyway.',
-    'It catches your sleeve. You tear loose, losing skin, and sprint.',
-    'A grab, a stumble, gravel cutting your palms — then you are up and running, bleeding.',
+  zed_attack: [
+    'It attacks — it lunges as you move, and its nails tear through your sleeve into the arm underneath.',
+    'It attacks — a hand closes on your pack and drags you off balance, and teeth clamp on your shoulder through the cloth.',
+    'It attacks — it slams into you and you go down under it, getting an arm up before the teeth find your throat. Its grip strips skin as you tear free.',
+    'It attacks — you twist clear of the teeth, but its fingers rake your face and neck.',
+  ],
+  shove_ok: [
+    'You drive your shoulder into it and it goes down hard on the pavement. You run before it can turn over.',
+    'You plant both hands on its chest and throw your weight forward. It topples, limbs tangling, and you are gone.',
+    'You swing it aside by its coat and it falls against the wall and slides down. It is still getting up when you reach the exit.',
+  ],
+  shove_fail: [
+    'You shove — it grabs your arm as it falls and drags you down with it. Teeth score your forearm before you tear loose.',
+    'The shove glances off. It gets a grip on your collar, and its nails open the back of your neck as you break free.',
   ],
   zed_lost: [
     'You stop, chest heaving, and listen. Nothing. You have lost it.',

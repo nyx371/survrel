@@ -3,6 +3,10 @@
 // index.html so browsers fetch the new files immediately.
 export const CHANGELOG = [
   {
+    v: '0.08',
+    note: 'Encounters rebuilt: choose how you escape — slip away (cheap, riskier), bolt (costly, hard to catch or follow), or shove it down and run (usually ends the pursuit). When the dead connect, the text says so outright, with the damage — and a bad enough wound can kill you.',
+  },
+  {
     v: '0.07',
     note: 'Voice pass: the whole corpus rewritten to a plainer, harder register — no poetic metaphor, no personified objects, no narrator commentary. The dread is in what gets described, not how.',
   },

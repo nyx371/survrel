@@ -17,6 +17,16 @@ import {
 const DAY_MIN = 24 * 60;
 const SAVE_KEY = 'survrel.save.v1';
 
+// Escape tactics: how you leave an encounter. attack = base chance the dead
+// connect as you move; follow/followDoor = pursuit chance (door = breaking
+// line of sight through a doorway); knock = chance to put it down, ending
+// pursuit outright (shove only — failing the knock means it has hold of you).
+export const FLEE_VERBS = {
+  slip: { label: 'Slip away', sub: 'careful and quiet', icon: 'move', energy: 8, attack: 0.25, follow: 0.45, followDoor: 0.25 },
+  bolt: { label: 'Bolt', sub: 'all-out sprint', icon: 'run', energy: 16, attack: 0.10, follow: 0.20, followDoor: 0.12 },
+  shove: { label: 'Shove & run', sub: 'put it down first', icon: 'danger', energy: 12, attack: 0.15, follow: 0.35, followDoor: 0.20, knock: 0.75 },
+};
+
 export const COSTS = {
   move: { energy: 4, minutes: 15 },
   enter: { energy: 3, minutes: 10 },
@@ -322,11 +332,22 @@ export class Game {
     const canAfford = (c) => s.stats.energy >= c.energy;
 
     if (s.mode === 'encounter') {
+      const verb = s.fleeVerb || 'slip';
+      for (const [vid, v] of Object.entries(FLEE_VERBS)) {
+        const affordable = vid === 'slip' || s.stats.energy >= v.energy;
+        acts.push({
+          id: 'set_verb', arg: vid, icon: v.icon, label: v.label, sub: v.sub,
+          cost: { energy: v.energy, minutes: COSTS.flee.minutes },
+          selected: vid === verb,
+          disabled: !affordable, reason: affordable ? null : 'too tired',
+        });
+      }
       for (const exit of this.exits()) {
         if (exit.locked) continue;
         acts.push({
-          id: 'flee', arg: exit.arg, icon: 'run',
-          label: `Flee ${exit.label}`, cost: COSTS.flee,
+          id: 'flee', arg: exit.arg, icon: 'exit',
+          label: exit.label, sub: exit.sub,
+          cost: { energy: FLEE_VERBS[verb].energy, minutes: COSTS.flee.minutes },
           disabled: false,
         });
       }
@@ -454,6 +475,7 @@ export class Game {
       give: () => this.doGive(arg),
       ask_help: () => this.doAskHelp(arg),
       leave_talk: () => { this.s.mode = 'explore'; this.s.talkTo = null; this.describeHere(); },
+      set_verb: () => { this.s.fleeVerb = arg; },
       fire: () => this.doFire(),
       pry: () => this.doPry(arg),
       flee: () => this.doFlee(arg),
@@ -581,7 +603,7 @@ export class Game {
       if (zeds.length) {
         s.stats.health = Math.max(1, s.stats.health - 12);
         gain = Math.floor(gain / 2);
-        this.say('A dragging step wakes you — close, and inside. You scramble up.', 'danger');
+        this.say('It attacks while you sleep — a dragging step, then hands on you. You tear free and scramble up. (−12 health)', 'danger');
       }
     }
     s.stats.energy = Math.min(100, s.stats.energy + gain);
@@ -690,17 +712,48 @@ export class Game {
 
   doFlee(arg) {
     const r = this.live();
+    const s = this.s;
+    const verb = FLEE_VERBS[s.fleeVerb] || FLEE_VERBS.slip;
     const pursuers = this.zombiesHere();
-    // scratched?
-    const scratchChance = this.s.stats.energy < 30 ? 0.45 : pursuers.length > 1 ? 0.35 : 0.2;
-    if (r.chance(scratchChance)) {
-      this.s.stats.health = Math.max(1, this.s.stats.health - r.int(6, 14));
-      this.say(r.pick(TABLES.flee_scratch), 'danger');
-    } else {
-      this.say(fill(r, r.pick(TABLES.flee_ok)), 'info');
+    const energyBefore = s.stats.energy;
+
+    // shove first: put it down, or it has hold of you
+    let knocked = false;
+    let attacked = false;
+    if (verb.knock) {
+      if (r.chance(verb.knock)) {
+        knocked = true;
+        this.say(r.pick(TABLES.shove_ok), 'info');
+      } else {
+        attacked = true;
+        const dmg = r.int(10, 18);
+        s.stats.health -= dmg;
+        this.say(`${r.pick(TABLES.shove_fail)} (−${dmg} health)`, 'danger');
+      }
     }
+
+    // the dead get their chance as you move
+    if (!knocked && !attacked) {
+      let attackChance = verb.attack;
+      if (pursuers.length > 1) attackChance += 0.15;
+      if (energyBefore < 25) attackChance += 0.15;
+      if (r.chance(attackChance)) {
+        attacked = true;
+        const dmg = r.int(7, 15);
+        s.stats.health -= dmg;
+        this.say(`${r.pick(TABLES.zed_attack)} (−${dmg} health)`, 'danger');
+      } else {
+        this.say(fill(r, r.pick(TABLES.flee_ok)), 'info');
+      }
+    }
+    if (s.stats.health <= 0) {
+      s.stats.health = 0;
+      this.die('zed');
+      return;
+    }
+
     this.s.noise += 2;
-    this.s.stats.energy = Math.max(0, this.s.stats.energy - COSTS.flee.energy);
+    s.stats.energy = Math.max(0, s.stats.energy - verb.energy);
 
     // move through the chosen exit without triggering the normal spend loop
     const wasOutdoors = !this.indoors;
@@ -716,9 +769,13 @@ export class Game {
 
     // the hunt: a marked pursuer may come straight after you. Ducking through
     // a door (changing indoors/outdoors) is harder to follow than open ground.
+    // A knocked-down zombie does not get up in time to follow.
     const doorBetween = wasOutdoors !== !this.indoors || !wasOutdoors;
+    const followChance = doorBetween ? verb.followDoor : verb.follow;
     for (const z of pursuers) {
-      if (z.hunt > 0 && r.chance(doorBetween ? 0.25 : 0.45)) {
+      if (knocked) {
+        z.hunt = 0;
+      } else if (z.hunt > 0 && r.chance(followChance)) {
         z.x = this.s.pos.x; z.y = this.s.pos.y; z.b = this.s.pos.b; z.r = this.s.pos.r;
         z.followed = true;
       } else {

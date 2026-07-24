@@ -108,15 +108,16 @@ export class UI {
     banner.classList.toggle('hidden', !encounter);
     if (encounter) banner.innerHTML = `${icon('zombie')}<span>The dead are here. Run.</span>`;
 
-    // contextual chips: everything situational (doors, buildings, people, flee)
+    // contextual chips: escape tactics in an encounter, otherwise the
+    // situational stuff (doors, buildings, people)
     const ctxIds = encounter
-      ? ['flee']
+      ? ['set_verb']
       : ['enter', 'goroom', 'exit_building', 'pry', 'talk', 'give', 'ask_help', 'sleep_safe', 'leave_talk'];
     const ctx = acts.filter((a) => ctxIds.includes(a.id));
     const ctxEl = $('#ctx');
     ctxEl.classList.toggle('hidden', !ctx.length);
     ctxEl.innerHTML = ctx.map((a, i) => `
-      <button class="chip-act ${encounter ? 'chip-flee' : ''}" data-i="${i}" ${a.disabled ? 'disabled' : ''}
+      <button class="chip-act ${encounter ? 'chip-flee' : ''} ${a.selected ? 'selected' : ''}" data-i="${i}" ${a.disabled ? 'disabled' : ''}
         title="${a.reason || a.sub || ''} · ${a.cost ? a.cost.minutes + '′' : ''}">
         ${icon(a.icon)}<span>${a.label}</span>${costBadge(a.cost)}
       </button>`).join('');
@@ -127,23 +128,41 @@ export class UI {
       });
     });
 
-    // compass row
-    const moves = encounter ? [] : acts.filter((a) => a.id === 'move');
+    // second row: escape exits in an encounter, compass row otherwise
     const nav = $('#nav');
-    nav.classList.toggle('hidden', !moves.length);
-    nav.innerHTML = moves.map((a) => `
-      <button class="nav-btn" data-dir="${a.arg}" ${a.disabled ? 'disabled' : ''}
-        title="${a.label} — ${a.sub || ''} (${a.cost.energy}⚡ ${a.cost.minutes}′)">
-        <span class="nav-arrow">${ARROWS[a.arg] || '·'}</span>
-        <span class="nav-dest">${a.sub || ''}</span>
-        ${costBadge(a.cost)}
-      </button>`).join('');
-    nav.querySelectorAll('button.nav-btn').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        const a = moves.find((m) => m.arg === btn.dataset.dir);
-        if (a && !a.disabled) this.cb.onAction(a.id, a.arg);
+    nav.classList.toggle('nav-flee', encounter);
+    if (encounter) {
+      const exits = acts.filter((a) => a.id === 'flee');
+      nav.classList.toggle('hidden', !exits.length);
+      nav.innerHTML = exits.map((a, i) => `
+        <button class="nav-btn nav-exit" data-i="${i}"
+          title="${a.sub || ''} (${a.cost.energy}⚡ ${a.cost.minutes}′)">
+          ${icon(a.icon)}<span class="nav-exit-label">${a.label}</span>
+          ${costBadge(a.cost)}
+        </button>`).join('');
+      nav.querySelectorAll('button.nav-btn').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const a = exits[Number(btn.dataset.i)];
+          if (a) this.cb.onAction(a.id, a.arg);
+        });
       });
-    });
+    } else {
+      const moves = acts.filter((a) => a.id === 'move');
+      nav.classList.toggle('hidden', !moves.length);
+      nav.innerHTML = moves.map((a) => `
+        <button class="nav-btn" data-dir="${a.arg}" ${a.disabled ? 'disabled' : ''}
+          title="${a.label} — ${a.sub || ''} (${a.cost.energy}⚡ ${a.cost.minutes}′)">
+          <span class="nav-arrow">${ARROWS[a.arg] || '·'}</span>
+          <span class="nav-dest">${a.sub || ''}</span>
+          ${costBadge(a.cost)}
+        </button>`).join('');
+      nav.querySelectorAll('button.nav-btn').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const a = moves.find((m) => m.arg === btn.dataset.dir);
+          if (a && !a.disabled) this.cb.onAction(a.id, a.arg);
+        });
+      });
+    }
 
     // standard slots: fixed order, fixed positions
     const stdEl = $('#std-acts');
