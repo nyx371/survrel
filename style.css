@@ -42,12 +42,7 @@ svg.gi { width: 1.15em; height: 1.15em; vertical-align: -0.2em; fill: currentCol
 
 /* header ----------------------------------------------------------------- */
 header { display: flex; align-items: center; gap: 10px; }
-.brand {
-  font: 700 13px/1 'Courier New', monospace;
-  letter-spacing: 0.35em;
-  color: var(--ink-faint);
-}
-.hud { display: flex; gap: 6px; flex: 1; justify-content: flex-end; }
+.hud { display: flex; gap: 6px; flex: 1; }
 .chip {
   display: inline-flex; align-items: center; gap: 5px;
   background: var(--panel); border: 1px solid var(--line);
@@ -109,6 +104,21 @@ main {
 .log-line.log-talk { color: var(--talk); }
 .log-line.log-system { color: var(--ink-faint); font: 12px 'Courier New', monospace; }
 .log-line.log-flavor { font-style: italic; }
+
+/* compass nav ------------------------------------------------------------ */
+#nav { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; flex: none; }
+button.nav-btn {
+  display: flex; flex-direction: column; align-items: center; gap: 1px;
+  background: var(--panel-2); border: 1px solid var(--line); color: var(--ink);
+  border-radius: 8px; padding: 4px 4px 3px; cursor: pointer; font: inherit;
+  min-width: 0;
+}
+button.nav-btn:hover:not(:disabled) { border-color: var(--accent); }
+.nav-arrow { font-size: 15px; line-height: 1.1; color: var(--accent); }
+.nav-dest {
+  font-size: 9.5px; color: var(--ink-faint); line-height: 1.2;
+  max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
 
 /* actions ---------------------------------------------------------------- */
 #actions {

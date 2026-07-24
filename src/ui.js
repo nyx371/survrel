@@ -81,12 +81,32 @@ export class UI {
 
   renderActions() {
     const g = this.g;
-    const acts = g.actions();
+    const allActs = g.actions();
     const encounter = g.s.mode === 'encounter';
     $('#danger-banner').classList.toggle('hidden', !encounter);
     if (encounter) {
       $('#danger-banner').innerHTML = `${icon('zombie')}<span>The dead are here. Run.</span>`;
     }
+
+    // compass row: compact directional movement (explore mode only)
+    const ARROWS = { north: '↑', east: '→', south: '↓', west: '←' };
+    const moves = encounter ? [] : allActs.filter((a) => a.id === 'move');
+    const acts = encounter ? allActs : allActs.filter((a) => a.id !== 'move');
+    const nav = $('#nav');
+    nav.classList.toggle('hidden', !moves.length);
+    nav.innerHTML = moves.map((a) => `
+      <button class="nav-btn" data-dir="${a.arg}" ${a.disabled ? 'disabled' : ''}
+        title="${a.label} — ${a.sub || ''} (${a.cost.energy}⚡ ${a.cost.minutes}′)">
+        <span class="nav-arrow">${ARROWS[a.arg] || '·'}</span>
+        <span class="nav-dest">${a.sub || ''}</span>
+      </button>`).join('');
+    nav.querySelectorAll('button.nav-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const a = moves.find((m) => m.arg === btn.dataset.dir);
+        if (a && !a.disabled) this.cb.onAction(a.id, a.arg);
+      });
+    });
+
     $('#actions').innerHTML = acts.map((a, i) => `
       <button class="act ${encounter ? 'act-flee' : ''}" data-i="${i}" ${a.disabled ? 'disabled' : ''}>
         ${icon(a.icon)}
