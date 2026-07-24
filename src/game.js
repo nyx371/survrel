@@ -8,7 +8,7 @@ import {
   initialZombies, START, CITY_W, CITY_H, streetNameV, streetNameH,
 } from './world.js';
 import {
-  TABLES, LOCKED_DESC, UNLOCK_DESC, SURVIVOR_ROLES, SURVIVOR_MEET,
+  TABLES, DISTRICTS, LOCKED_DESC, UNLOCK_DESC, SURVIVOR_ROLES, SURVIVOR_MEET,
   SURVIVOR_TALK_T0, SURVIVOR_TALK_T1, SURVIVOR_TALK_T2, SURVIVOR_TALK_T3,
   SURVIVOR_THANKS, SURVIVOR_NEED_LINE, EAT_LINES, DRINK_LINES, TOO_TIRED,
   COLD_WARNING, HUNGER_WARNING, DEATH_COLD, DEATH_HUNGER, DEATH_ZED, fill,
@@ -87,8 +87,23 @@ export class Game {
   }
 
   say(text, kind = 'info') {
-    this.s.log.push({ text, kind });
+    this.s.logSeq = (this.s.logSeq || 0) + 1;
+    this.s.log.push({ seq: this.s.logSeq, text, kind });
     if (this.s.log.length > 60) this.s.log.splice(0, this.s.log.length - 60);
+  }
+
+  // A scene block in the narrative stream: emitted once per arrival.
+  sayScene(title, sub, parts) {
+    this.s.logSeq = (this.s.logSeq || 0) + 1;
+    this.s.log.push({ seq: this.s.logSeq, kind: 'scene', title, sub, text: parts.join('\n\n') });
+    if (this.s.log.length > 60) this.s.log.splice(0, this.s.log.length - 60);
+  }
+
+  locTitle() {
+    if (this.indoors) {
+      return { title: `${this.building.name} — ${this.room.type}`, sub: `${this.here.name} · ${DISTRICTS[this.here.district].label}` };
+    }
+    return { title: this.here.name, sub: DISTRICTS[this.here.district].label };
   }
 
   live() {
@@ -146,6 +161,12 @@ export class Game {
       }
     }
     this.currentDesc = parts;
+    const key = locKey(this.s.pos);
+    if (first || this.s.lastSceneKey !== key) {
+      this.s.lastSceneKey = key;
+      const { title, sub } = this.locTitle();
+      this.sayScene(title, sub, parts);
+    }
     return parts;
   }
 
@@ -444,20 +465,18 @@ export class Game {
     const nx = this.s.pos.x + d[0], ny = this.s.pos.y + d[1];
     if (!inBounds(nx, ny)) return;
     this.s.pos = { x: nx, y: ny, b: null, r: null };
-    this.spend(COSTS.move);
-    if (this.s.mode === 'dead') return;
     this.markVisited();
     this.describeHere();
     const r = this.live();
     if (r.chance(0.18)) this.say(r.pick(TABLES.ambient_event), 'flavor');
+    this.spend(COSTS.move);
   }
 
   doEnter(slot) {
     this.s.pos = { ...this.s.pos, b: slot, r: 0 };
-    this.spend(COSTS.enter);
-    if (this.s.mode === 'dead') return;
     this.markVisited();
     this.describeHere();
+    this.spend(COSTS.enter);
   }
 
   doGoRoom(idx) {
@@ -468,18 +487,16 @@ export class Game {
       return;
     }
     this.s.pos = { ...this.s.pos, r: idx };
-    this.spend(COSTS.room);
-    if (this.s.mode === 'dead') return;
     this.markVisited();
     this.describeHere();
+    this.spend(COSTS.room);
   }
 
   doExitBuilding() {
     this.s.pos = { ...this.s.pos, b: null, r: null };
-    this.spend(COSTS.room);
-    if (this.s.mode === 'dead') return;
     this.markVisited();
     this.describeHere();
+    this.spend(COSTS.room);
   }
 
   doPry(idx) {
@@ -685,12 +702,12 @@ export class Game {
     if (this.s.mode === 'dead') return;
     this.markVisited();
     this.s.mode = 'explore';
+    this.describeHere();
     this.stepZombies(1);
     this.checkEncounter();
     if (this.s.mode !== 'encounter') {
       this.say(r.pick(TABLES.zed_lost), 'safe');
     }
-    this.describeHere();
   }
 
   // In encounter mode, exits() needs the same shape; reuse with flee labels.
@@ -786,6 +803,12 @@ export class Game {
       const g = Object.create(Game.prototype);
       g.seed = s.seed;
       g.s = s;
+      // migrate pre-feed saves: give log entries sequence numbers
+      if (Array.isArray(s.log)) {
+        let seq = 0;
+        for (const l of s.log) { if (l.seq === undefined) l.seq = ++seq; else seq = l.seq; }
+        s.logSeq = Math.max(s.logSeq || 0, seq);
+      }
       g.describeHere();
       return g;
     } catch (e) {

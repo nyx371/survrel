@@ -1,36 +1,52 @@
-// Rendering. Full re-render per turn — the DOM is tiny and this keeps the
-// game logic honest (state in, pixels out).
+// Rendering. One scrollable narrative feed; everything else is fixed.
+// The feed appends log entries (including scene blocks) in order, so the
+// newest information is always at the bottom, styled in place.
 
 import { icon } from './icons.js';
-import { ITEMS, itemName } from './data/items.js';
-import { DISTRICTS, SURVIVOR_ROLES } from './data/text.js';
+import { ITEMS } from './data/items.js';
 import { CITY_W, CITY_H } from './world.js';
 
 const $ = (sel) => document.querySelector(sel);
 
 const WX_ICON = { clear: 'day', overcast: 'day', rain: 'rain', snap: 'snow' };
 const WX_LABEL = { clear: 'clear', overcast: 'overcast', rain: 'rain', snap: 'cold snap' };
+const ARROWS = { north: '↑', east: '→', south: '↓', west: '←' };
+const STD_ORDER = ['search', 'fire', 'rest', 'sleep'];
+const STD_META = {
+  search: { icon: 'search', label: 'Search' },
+  fire: { icon: 'fire', label: 'Fire' },
+  rest: { icon: 'wait', label: 'Rest' },
+  sleep: { icon: 'sleep', label: 'Sleep' },
+};
+
+function costBadge(cost, gain = false) {
+  if (gain) return `<span class="badge badge-gain">${icon('energy')}+</span>`;
+  if (!cost || !cost.energy) return '';
+  return `<span class="badge">${icon('energy')}${cost.energy}</span>`;
+}
 
 export class UI {
   constructor(game, callbacks) {
     this.g = game;
     this.cb = callbacks; // { onAction(id, arg), onNewGame(), onUseItem(id), onDropItem(id) }
     this.panel = null; // null | 'inv' | 'map'
+    this.lastSeq = 0;
   }
 
   setGame(game) {
     this.g = game;
     this.panel = null;
+    this.lastSeq = 0;
+    $('#feed').innerHTML = '';
   }
 
   render() {
-    const g = this.g;
-    const s = g.s;
+    const s = this.g.s;
     this.renderHeader();
     this.renderStats();
-    this.renderScene();
-    this.renderActions();
-    this.renderFooter();
+    this.renderLocbar();
+    this.renderFeed();
+    this.renderDock();
     this.renderPanel();
     $('#death').classList.toggle('hidden', s.mode !== 'dead');
     if (s.mode === 'dead') this.renderDeath();
@@ -59,39 +75,60 @@ export class UI {
       </div>`).join('');
   }
 
-  renderScene() {
-    const g = this.g;
-    const cell = g.here;
-    let title, sub;
-    if (g.indoors) {
-      title = `${g.building.name} — ${g.room.type}`;
-      sub = `${cell.name} · ${DISTRICTS[cell.district].label}`;
-    } else {
-      title = cell.name;
-      sub = DISTRICTS[cell.district].label;
-    }
-    $('#loc-title').textContent = title;
-    $('#loc-sub').textContent = sub;
-    $('#desc').innerHTML = (g.currentDesc || []).map((p) => `<p>${p}</p>`).join('');
-    const log = g.s.log.slice(-7);
-    $('#log').innerHTML = log.map((l) => `<div class="log-line log-${l.kind}">${l.text}</div>`).join('');
-    const logEl = $('#log');
-    logEl.scrollTop = logEl.scrollHeight;
+  renderLocbar() {
+    const { title, sub } = this.g.locTitle();
+    $('#locbar').innerHTML = `<b>${title}</b><span>${sub}</span>`;
   }
 
-  renderActions() {
-    const g = this.g;
-    const allActs = g.actions();
-    const encounter = g.s.mode === 'encounter';
-    $('#danger-banner').classList.toggle('hidden', !encounter);
-    if (encounter) {
-      $('#danger-banner').innerHTML = `${icon('zombie')}<span>The dead are here. Run.</span>`;
+  renderFeed() {
+    const feed = $('#feed');
+    const fresh = this.g.s.log.filter((l) => (l.seq || 0) > this.lastSeq);
+    for (const l of fresh) {
+      const div = document.createElement('div');
+      if (l.kind === 'scene') {
+        div.className = 'fb fb-scene';
+        div.innerHTML = `<h2>${l.title}</h2><div class="fb-sub">${l.sub}</div>`
+          + l.text.split('\n\n').map((p) => `<p>${p}</p>`).join('');
+      } else {
+        div.className = `fb fb-line log-${l.kind}`;
+        div.textContent = l.text;
+      }
+      feed.appendChild(div);
+      this.lastSeq = l.seq || this.lastSeq;
     }
+    while (feed.children.length > 150) feed.removeChild(feed.firstChild);
+    if (fresh.length) feed.scrollTop = feed.scrollHeight;
+  }
 
-    // compass row: compact directional movement (explore mode only)
-    const ARROWS = { north: '↑', east: '→', south: '↓', west: '←' };
-    const moves = encounter ? [] : allActs.filter((a) => a.id === 'move');
-    const acts = encounter ? allActs : allActs.filter((a) => a.id !== 'move');
+  renderDock() {
+    const g = this.g;
+    const acts = g.actions();
+    const encounter = g.s.mode === 'encounter';
+    const banner = $('#danger-banner');
+    banner.classList.toggle('hidden', !encounter);
+    if (encounter) banner.innerHTML = `${icon('zombie')}<span>The dead are here. Run.</span>`;
+
+    // contextual chips: everything situational (doors, buildings, people, flee)
+    const ctxIds = encounter
+      ? ['flee']
+      : ['enter', 'goroom', 'exit_building', 'pry', 'talk', 'give', 'ask_help', 'sleep_safe', 'leave_talk'];
+    const ctx = acts.filter((a) => ctxIds.includes(a.id));
+    const ctxEl = $('#ctx');
+    ctxEl.classList.toggle('hidden', !ctx.length);
+    ctxEl.innerHTML = ctx.map((a, i) => `
+      <button class="chip-act ${encounter ? 'chip-flee' : ''}" data-i="${i}" ${a.disabled ? 'disabled' : ''}
+        title="${a.reason || a.sub || ''} · ${a.cost ? a.cost.minutes + '′' : ''}">
+        ${icon(a.icon)}<span>${a.label}</span>${costBadge(a.cost)}
+      </button>`).join('');
+    ctxEl.querySelectorAll('button.chip-act').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const a = ctx[Number(btn.dataset.i)];
+        if (a && !a.disabled) this.cb.onAction(a.id, a.arg);
+      });
+    });
+
+    // compass row
+    const moves = encounter ? [] : acts.filter((a) => a.id === 'move');
     const nav = $('#nav');
     nav.classList.toggle('hidden', !moves.length);
     nav.innerHTML = moves.map((a) => `
@@ -99,6 +136,7 @@ export class UI {
         title="${a.label} — ${a.sub || ''} (${a.cost.energy}⚡ ${a.cost.minutes}′)">
         <span class="nav-arrow">${ARROWS[a.arg] || '·'}</span>
         <span class="nav-dest">${a.sub || ''}</span>
+        ${costBadge(a.cost)}
       </button>`).join('');
     nav.querySelectorAll('button.nav-btn').forEach((btn) => {
       btn.addEventListener('click', () => {
@@ -107,28 +145,36 @@ export class UI {
       });
     });
 
-    $('#actions').innerHTML = acts.map((a, i) => `
-      <button class="act ${encounter ? 'act-flee' : ''}" data-i="${i}" ${a.disabled ? 'disabled' : ''}>
-        ${icon(a.icon)}
-        <span class="act-text">
-          <span class="act-label">${a.label}</span>
-          ${a.sub || a.reason ? `<span class="act-sub">${a.reason || a.sub}</span>` : ''}
-        </span>
-        ${a.cost && (a.cost.energy || a.cost.minutes) ? `<span class="act-cost">${a.cost.energy ? `${icon('energy')}${a.cost.energy}` : ''}<em>${a.cost.minutes}′</em></span>` : ''}
-      </button>`).join('');
-    $('#actions').querySelectorAll('button.act').forEach((btn) => {
+    // standard slots: fixed order, fixed positions
+    const stdEl = $('#std-acts');
+    const slots = STD_ORDER.map((id) => ({ id, act: acts.find((a) => a.id === id) }));
+    const anyStd = slots.some((sl) => sl.act);
+    stdEl.innerHTML = anyStd ? slots.map(({ id, act }) => {
+      const meta = STD_META[id];
+      const gain = id === 'rest' || id === 'sleep';
+      const disabled = !act || act.disabled;
+      const reason = !act ? (id === 'fire' ? 'no matches' : '') : (act.reason || '');
+      const sub = act ? (act.sub || '') : reason;
+      return `
+      <button class="std-btn" data-id="${id}" ${disabled ? 'disabled' : ''}
+        title="${meta.label}${sub ? ' — ' + sub : ''}${act && act.cost.minutes ? ' · ' + act.cost.minutes + '′' : ''}">
+        ${icon(meta.icon)}
+        <span class="std-label">${meta.label}</span>
+        ${sub ? `<span class="std-sub">${sub}</span>` : ''}
+        ${act ? costBadge(act.cost, gain) : ''}
+      </button>`;
+    }).join('') : '';
+    stdEl.querySelectorAll('button.std-btn').forEach((btn) => {
       btn.addEventListener('click', () => {
-        const a = acts[Number(btn.dataset.i)];
-        if (a && !a.disabled) this.cb.onAction(a.id, a.arg);
+        const sl = slots.find((x) => x.id === btn.dataset.id);
+        if (sl && sl.act && !sl.act.disabled) this.cb.onAction(sl.act.id, sl.act.arg);
       });
     });
-  }
 
-  renderFooter() {
-    const g = this.g;
+    // pack & map
     const invCount = Object.values(g.s.inv).reduce((a, b) => a + b, 0);
-    $('#btn-inv').innerHTML = `${icon('backpack')}<span>${invCount}</span>`;
-    $('#btn-map').innerHTML = `${icon('map')}<span>Map</span>`;
+    $('#btn-inv').innerHTML = `${icon('backpack')}<span class="std-label">Pack</span><span class="std-sub">${invCount}</span>`;
+    $('#btn-map').innerHTML = `${icon('map')}<span class="std-label">Map</span>`;
     $('#btn-inv').classList.toggle('active', this.panel === 'inv');
     $('#btn-map').classList.toggle('active', this.panel === 'map');
   }
@@ -207,7 +253,7 @@ export class UI {
 
   togglePanel(which) {
     this.panel = this.panel === which ? null : which;
-    this.renderFooter();
+    this.renderDock();
     this.renderPanel();
   }
 }
