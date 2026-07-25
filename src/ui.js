@@ -50,6 +50,16 @@ export class UI {
     this.renderPanel();
     $('#death').classList.toggle('hidden', s.mode !== 'dead');
     if (s.mode === 'dead') this.renderDeath();
+    // scroll after the dock has rendered: a grown dock (encounter banner,
+    // tactics, exits) shrinks the feed after the fact and would hide the
+    // newest lines. The rAF pass catches the post-layout height.
+    this.scrollFeed();
+  }
+
+  scrollFeed() {
+    const feed = $('#feed');
+    feed.scrollTop = feed.scrollHeight;
+    requestAnimationFrame(() => { feed.scrollTop = feed.scrollHeight; });
   }
 
   renderHeader() {
@@ -97,7 +107,6 @@ export class UI {
       this.lastSeq = l.seq || this.lastSeq;
     }
     while (feed.children.length > 150) feed.removeChild(feed.firstChild);
-    if (fresh.length) feed.scrollTop = feed.scrollHeight;
   }
 
   renderDock() {

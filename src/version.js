@@ -3,6 +3,10 @@
 // index.html so browsers fetch the new files immediately.
 export const CHANGELOG = [
   {
+    v: '0.11',
+    note: 'The story stream now always scrolls to the newest line after every action — including when the action buttons change size, which used to hide the latest text behind the dock.',
+  },
+  {
     v: '0.10',
     note: 'Resting reads differently every time: sixteen new rest lines about strength coming back, plus varied eating, drinking and first-aid lines — and no line ever repeats twice in a row.',
   },
