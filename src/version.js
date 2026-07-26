@@ -3,6 +3,10 @@
 // index.html so browsers fetch the new files immediately.
 export const CHANGELOG = [
   {
+    v: '0.12',
+    note: 'The city gets deeper: scout blocks and listen at doors before you commit; barricade rooms into shelters; throw bottles to pull the dead away; deep wounds bleed until wrapped — and the dead smell blood. Raider gangs hold territory and demand tolls: pay, stand your ground, or back away. Friends now warn you about gangs and vouch for other survivors. And the city teaches: grit builds with every day survived and every close call, unlocking five hard-won edges.',
+  },
+  {
     v: '0.11',
     note: 'The story stream now always scrolls to the newest line after every action — including when the action buttons change size, which used to hide the latest text behind the dock.',
   },

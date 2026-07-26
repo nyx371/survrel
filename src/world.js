@@ -200,7 +200,7 @@ export function neighbors(x, y) {
 
 // Interior/outdoor cells have a thin loot table.
 const OUTDOOR_LOOT = {
-  alley: [['cracker', 1], ['soda', 1], ['matches', 1], ['rope', 0.5], ['key', 0.5]],
+  alley: [['cracker', 1], ['soda', 1], ['matches', 1], ['bottle', 1], ['rope', 0.5], ['key', 0.5]],
   courtyard: [['matches', 1], ['water', 1], ['berries', 0.7], ['jacket', 0.4]],
   park: [['berries', 2], ['water', 0.7], ['rope', 0.4]],
   parking: [['soda', 1], ['battery', 1], ['crowbar', 0.5], ['flashlight', 0.5], ['map_scrap', 0.5]],
@@ -210,8 +210,8 @@ const OUTDOOR_LOOT = {
   underpass: [['matches', 1], ['soda', 1], ['sleeping_bag', 0.6], ['flashlight', 0.5], ['knife', 0.4]],
   cemetery: [['matches', 1], ['key', 0.7], ['scarf', 0.6], ['flashlight', 0.4]],
   construction: [['rope', 1.5], ['crowbar', 1], ['battery', 0.7], ['jacket', 0.5]],
-  street_h: [['soda', 0.7], ['cracker', 0.7], ['battery', 0.5], ['map_scrap', 0.4], ['bandage', 0.4]],
-  street_v: [['soda', 0.7], ['cracker', 0.7], ['battery', 0.5], ['map_scrap', 0.4], ['bandage', 0.4]],
+  street_h: [['soda', 0.7], ['cracker', 0.7], ['bottle', 0.7], ['battery', 0.5], ['map_scrap', 0.4], ['bandage', 0.4]],
+  street_v: [['soda', 0.7], ['cracker', 0.7], ['bottle', 0.7], ['battery', 0.5], ['map_scrap', 0.4], ['bandage', 0.4]],
   intersection: [['soda', 0.7], ['map_scrap', 0.6], ['battery', 0.5]],
 };
 
@@ -288,6 +288,28 @@ export function genSurvivors(seed) {
 }
 
 // ---- zombies ------------------------------------------------------------
+
+// ---- raiders ------------------------------------------------------------
+
+const RAIDER_DEMANDS = ['canned_food', 'water', 'pills', 'battery', 'bandage'];
+
+export function genRaiders(seed) {
+  const r = rngFor(seed, 'raiders');
+  const groups = [];
+  let attempts = 0;
+  while (groups.length < 2 && attempts < 300) {
+    attempts++;
+    const x = r.int(0, CITY_W - 1), y = r.int(0, CITY_H - 1);
+    if (Math.abs(x - START.x) + Math.abs(y - START.y) < 4) continue;
+    if (groups.some((g) => Math.abs(g.x - x) + Math.abs(g.y - y) < 5)) continue;
+    groups.push({
+      id: `g${groups.length}`, x, y,
+      demand: r.pick(RAIDER_DEMANDS),
+      nameIdx: r.int(0, 4),
+    });
+  }
+  return groups;
+}
 
 export function initialZombies(seed, count = 26) {
   const r = rngFor(seed, 'zeds');

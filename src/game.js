@@ -5,14 +5,17 @@ import { ITEMS, itemName } from './data/items.js';
 import {
   getCell, describeCell, describeRoom, locKey, neighbors, inBounds,
   lootTableFor, rollLoot, weatherForDay, ambientWarmth, genSurvivors,
-  initialZombies, START, CITY_W, CITY_H, streetNameV, streetNameH,
+  genRaiders, initialZombies, START, CITY_W, CITY_H, streetNameV, streetNameH,
 } from './world.js';
 import {
   TABLES, DISTRICTS, LOCKED_DESC, UNLOCK_DESC, SURVIVOR_ROLES, SURVIVOR_MEET, SMOKE_HINT,
   SURVIVOR_TALK_T0, SURVIVOR_TALK_T1, SURVIVOR_TALK_T2, SURVIVOR_TALK_T3,
-  SURVIVOR_THANKS, SURVIVOR_NEED_LINE, EAT_LINES, DRINK_LINES, TOO_TIRED,
-  COLD_WARNING, HUNGER_WARNING, DEATH_COLD, DEATH_HUNGER, DEATH_ZED,
-  REST_LINES, MED_LINES, fill,
+  SURVIVOR_THANKS, SURVIVOR_NEED_LINE, SURVIVOR_VOUCH, EAT_LINES, DRINK_LINES, TOO_TIRED,
+  COLD_WARNING, HUNGER_WARNING, DEATH_COLD, DEATH_HUNGER, DEATH_ZED, DEATH_BLEED,
+  REST_LINES, MED_LINES, LISTEN_QUIET, LISTEN_ZED, SCOUT_START, LISTEN_START,
+  BARRICADE_LINES, BOTTLE_LINES, RAIDER_NAMES, RAIDER_MEET, RAIDER_DEMAND,
+  RAIDER_PAY, RAIDER_WIN, RAIDER_LOSE, RAIDER_BACK, RAIDER_WARN, RAIDER_PEACE_NOTE,
+  GRIT_LEVELS, GRIT_UP, BLEED_START, BLEED_STOP, BLEED_WARN, fill,
 } from './data/text.js';
 
 const DAY_MIN = 24 * 60;
@@ -41,7 +44,15 @@ export const COSTS = {
   flee: { energy: 10, minutes: 10 },
   fire: { energy: 3, minutes: 20 },
   pry: { energy: 6, minutes: 15 },
+  scout: { energy: 3, minutes: 10 },
+  listen: { energy: 1, minutes: 5 },
+  barricade: { energy: 6, minutes: 30 },
+  throw: { energy: 2, minutes: 5 },
+  back_away: { energy: 3, minutes: 10 },
 };
+
+// Grit: experience thresholds for levels 1..5 (perks in GRIT_LEVELS).
+const GRIT_THRESH = [10, 25, 45, 70, 100];
 
 export class Game {
   constructor(seed) {
@@ -62,7 +73,14 @@ export class Game {
       searched: {},
       unlocked: {},
       zombies: initialZombies(seed),
-      survivors: genSurvivors(seed).map((sv) => ({ ...sv, trust: 0, met: false, introduced: false, given: 0, giftDay: 0 })),
+      survivors: genSurvivors(seed).map((sv) => ({ ...sv, trust: 0, met: false, introduced: false, given: 0, giftDay: 0, warned: false, vouched: false })),
+      raiders: genRaiders(seed).map((g) => ({ ...g, met: false, respect: false, peaceUntil: 0, lastShakeDay: 0 })),
+      raiderKnown: {},
+      grit: { xp: 0, level: 0 },
+      conditions: {},
+      shelters: {},
+      lastGritDay: 1,
+      prevPos: null,
       noise: 0,
       mode: 'explore', // explore | encounter | talk | dead
       talkTo: null,
@@ -120,6 +138,24 @@ export class Game {
   live() {
     // deterministic per turn so saves replay identically
     return rngFor(this.s.seed, 'live', this.s.turn);
+  }
+
+  // ---- grit --------------------------------------------------------------
+
+  get gritLevel() { return this.s.grit ? this.s.grit.level : 0; }
+
+  addGrit(n) {
+    const g = this.s.grit;
+    g.xp += n;
+    while (g.level < GRIT_THRESH.length && g.xp >= GRIT_THRESH[g.level]) {
+      g.level += 1;
+      const perk = GRIT_LEVELS[g.level - 1];
+      this.say(fill(this.live(), GRIT_UP, { name: perk.name, desc: perk.desc }), 'system');
+    }
+  }
+
+  moveCost() {
+    return this.gritLevel >= 1 ? { energy: 3, minutes: 15 } : COSTS.move;
   }
 
   // pick from a pool without repeating the previous pick for that key —
@@ -188,6 +224,7 @@ export class Game {
         parts.push(r.pick(SURVIVOR_MEET));
         parts.push(`A stranger, ${sv.trait}. ${role.look}`);
         sv.met = true;
+        this.addGrit(2);
       } else if (!sv.introduced) {
         parts.push(`The stranger is here, ${sv.trait}. ${role.look}`);
       } else {
@@ -218,10 +255,15 @@ export class Game {
         this.s.minutes -= DAY_MIN;
         this.s.day += 1;
         this.say(`— Day ${this.s.day} —`, 'system');
+        if (this.s.day > this.s.lastGritDay) {
+          this.s.lastGritDay = this.s.day;
+          this.addGrit(3);
+        }
       }
       const hours = step / 60;
       st.hunger = Math.max(0, st.hunger - 2.5 * hours);
       if (!opts.sleeping) st.energy = Math.max(0, st.energy - 0.6 * hours);
+      if (this.s.conditions.bleeding) st.health -= 1.5 * hours;
 
       // warmth drifts toward ambient target
       const fire = this.totalMinutes <= this.s.fireUntil;
@@ -238,11 +280,11 @@ export class Game {
       if (st.hunger <= 0) st.health -= 3 * hours;
       if (st.warmth < 15) st.health -= 4 * hours;
       else if (st.warmth < 30) st.health -= 1.5 * hours;
-      if (st.health < 100 && st.hunger > 50 && st.warmth > 40) st.health += (opts.sleeping ? 2.5 : 1) * hours;
+      if (st.health < 100 && st.hunger > 50 && st.warmth > 40 && !this.s.conditions.bleeding) st.health += (opts.sleeping ? 2.5 : 1) * hours;
       st.health = Math.max(0, Math.min(100, st.health));
 
       if (st.health <= 0) {
-        this.die(st.hunger <= 0 ? 'hunger' : st.warmth < 30 ? 'cold' : 'zed');
+        this.die(st.hunger <= 0 ? 'hunger' : st.warmth < 30 ? 'cold' : this.s.conditions.bleeding ? 'bleed' : 'zed');
         return;
       }
     }
@@ -252,7 +294,7 @@ export class Game {
   die(cause) {
     this.s.mode = 'dead';
     this.s.deathCause = cause;
-    const pool = cause === 'cold' ? DEATH_COLD : cause === 'hunger' ? DEATH_HUNGER : DEATH_ZED;
+    const pool = cause === 'cold' ? DEATH_COLD : cause === 'hunger' ? DEATH_HUNGER : cause === 'bleed' ? DEATH_BLEED : DEATH_ZED;
     this.say(this.live().pick(pool), 'danger');
     this.say(`You survived ${this.s.day} day${this.s.day === 1 ? '' : 's'}.`, 'system');
     this.clearSave();
@@ -262,6 +304,7 @@ export class Game {
     const r = this.live();
     if (this.s.stats.hunger < 20 && this.s.stats.hunger > 0 && r.chance(0.5)) this.say(r.pick(HUNGER_WARNING), 'warn');
     if (this.s.stats.warmth < 28 && r.chance(0.5)) this.say(r.pick(COLD_WARNING), 'warn');
+    if (this.s.conditions.bleeding && r.chance(0.4)) this.say(r.pick(BLEED_WARN), 'danger');
   }
 
   // ---- zombie simulation -------------------------------------------------
@@ -280,7 +323,7 @@ export class Game {
     if (z.hunt > 0) z.hunt -= 1;
     if (z.b === null) {
       const dist = Math.abs(z.x - p.x) + Math.abs(z.y - p.y);
-      const smell = this.s.noise > 0 ? 3 : 2;
+      const smell = (this.s.noise > 0 ? 3 : 2) + (this.s.conditions.bleeding ? 1 : 0);
       const hunting = z.hunt > 0 && dist <= 6;
       if (p.b === null && dist > 0 && (hunting || (dist <= smell && r.chance(0.7)))) {
         // shamble toward the player; hunters do not lose the trail
@@ -301,21 +344,25 @@ export class Game {
       const cell = getCell(this.s.seed, z.x, z.y);
       const bld = cell.buildings[z.b];
       if (!bld) { z.b = null; z.r = null; return; }
+      const blocked = (idx) => this.s.shelters[this.roomKey(z.x, z.y, z.b, idx)];
       const inSameBuilding = p.x === z.x && p.y === z.y && p.b === z.b;
       if (inSameBuilding && z.r !== p.r && (z.hunt > 0 || r.chance(0.6))) {
         // move one room along adjacency toward the player (greedy: any adjacent
         // room; small building graphs make this good enough)
         const room = bld.rooms[z.r];
         const next = room.adj.find((a) => a === p.r);
-        z.r = next !== undefined ? next : r.pick(room.adj.length ? room.adj : [z.r]);
-        if (z.hunt > 0 && locKey(z) === locKey(p)) z.followed = true;
+        const dest = next !== undefined ? next : r.pick(room.adj.length ? room.adj : [z.r]);
+        if (!blocked(dest)) {
+          z.r = dest;
+          if (z.hunt > 0 && locKey(z) === locKey(p)) z.followed = true;
+        }
       } else if (z.r === 0 && r.chance(0.3)) {
         z.b = null; z.r = null;
       } else if (r.chance(0.4)) {
         const room = bld.rooms[z.r];
         if (room.adj.length) {
           const dest = bld.rooms[r.pick(room.adj)];
-          if (!dest.locked || this.s.unlocked[this.roomKey(z.x, z.y, z.b, dest.idx)]) z.r = dest.idx;
+          if ((!dest.locked || this.s.unlocked[this.roomKey(z.x, z.y, z.b, dest.idx)]) && !blocked(dest.idx)) z.r = dest.idx;
         }
       }
     }
@@ -348,6 +395,26 @@ export class Game {
     const acts = [];
     const canAfford = (c) => s.stats.energy >= c.energy;
 
+    if (s.mode === 'raider') {
+      const g = s.raiders.find((x) => x.id === s.raiderActive);
+      if (g) {
+        const have = (s.inv[g.demand] || 0) > 0;
+        acts.push({
+          id: 'raider_give', icon: 'give', label: `Hand over ${itemName(g.demand).toLowerCase()}`,
+          sub: have ? 'buys passage for a few days' : 'you have none',
+          cost: { energy: 0, minutes: 5 }, disabled: !have, reason: have ? null : 'you have none',
+        });
+        const edge = (s.inv.knife ? 1 : 0) + (this.gritLevel >= 4 ? 1 : 0);
+        acts.push({
+          id: 'raider_refuse', icon: 'knife', label: 'Stand your ground',
+          sub: edge >= 2 ? 'they will likely back down' : edge === 1 ? 'even odds, roughly' : 'they look confident',
+          cost: { energy: 2, minutes: 5 },
+        });
+        acts.push({ id: 'raider_back', icon: 'exit', label: 'Back away', sub: 'retreat the way you came', cost: COSTS.back_away });
+      }
+      return acts;
+    }
+
     if (s.mode === 'encounter') {
       const verb = s.fleeVerb || 'slip';
       for (const [vid, v] of Object.entries(FLEE_VERBS)) {
@@ -357,6 +424,13 @@ export class Game {
           cost: { energy: v.energy, minutes: COSTS.flee.minutes },
           selected: vid === verb,
           disabled: !affordable, reason: affordable ? null : 'too tired',
+        });
+      }
+      if ((s.inv.bottle || 0) > 0) {
+        acts.push({
+          id: 'throw_bottle', icon: 'soda', label: 'Throw a bottle', sub: 'pull them toward the noise',
+          cost: { energy: COSTS.throw.energy, minutes: COSTS.throw.minutes },
+          disabled: !canAfford(COSTS.throw), reason: canAfford(COSTS.throw) ? null : 'too tired',
         });
       }
       for (const exit of this.exits()) {
@@ -412,6 +486,28 @@ export class Game {
       reason: canAfford(COSTS.search) ? null : 'too tired',
     });
 
+    // scouting: look before you commit
+    if (!this.indoors) {
+      acts.push({
+        id: 'scout', icon: 'flashlight', label: 'Scout the block', sub: 'what waits in each direction',
+        cost: COSTS.scout, disabled: !canAfford(COSTS.scout), reason: canAfford(COSTS.scout) ? null : 'too tired',
+      });
+    } else if (this.room.adj.length) {
+      acts.push({
+        id: 'listen', icon: 'door', label: 'Listen at the doors', sub: 'what waits in the next rooms',
+        cost: COSTS.listen, disabled: !canAfford(COSTS.listen), reason: canAfford(COSTS.listen) ? null : 'too tired',
+      });
+    }
+
+    // barricade: turn a room into a shelter
+    if (this.indoors && !s.shelters[locKey(s.pos)] && ((s.inv.crowbar || 0) > 0 || (s.inv.rope || 0) > 0)) {
+      acts.push({
+        id: 'barricade', icon: 'crowbar', label: 'Barricade this room',
+        sub: (s.inv.crowbar || 0) > 0 ? 'a safe place to sleep' : 'uses a rope',
+        cost: COSTS.barricade, disabled: !canAfford(COSTS.barricade), reason: canAfford(COSTS.barricade) ? null : 'too tired',
+      });
+    }
+
     const sv = this.survivorHere();
     if (sv && sv.met) {
       acts.push({ id: 'talk', arg: sv.id, icon: 'talk', label: sv.introduced ? `Talk to ${sv.name}` : 'Talk to the stranger', cost: COSTS.talk });
@@ -437,7 +533,7 @@ export class Game {
           kind: 'move', arg: n.dir, icon: 'move',
           label: `${n.dir[0].toUpperCase() + n.dir.slice(1)}`,
           sub: seen ? cell.name : 'unexplored',
-          cost: COSTS.move,
+          cost: this.moveCost(),
         });
       }
       this.here.buildings.forEach((b, i) => {
@@ -467,6 +563,7 @@ export class Game {
 
   sleepSafety() {
     if (this.indoors) {
+      if (this.s.shelters[locKey(this.s.pos)]) return { level: 'safe', label: 'barricaded' };
       const sv = this.survivorInBuilding();
       if (sv && sv.trust >= 3) return { level: 'safe', label: 'safe — watched over' };
       return { level: 'indoors', label: 'sheltered' };
@@ -493,6 +590,13 @@ export class Game {
       ask_help: () => this.doAskHelp(arg),
       leave_talk: () => { this.s.mode = 'explore'; this.s.talkTo = null; this.describeHere(); },
       set_verb: () => { this.s.fleeVerb = arg; },
+      scout: () => this.doScout(),
+      listen: () => this.doListen(),
+      barricade: () => this.doBarricade(),
+      throw_bottle: () => this.doThrowBottle(),
+      raider_give: () => this.doRaiderGive(),
+      raider_refuse: () => this.doRaiderRefuse(),
+      raider_back: () => this.doRaiderBack(),
       fire: () => this.doFire(),
       pry: () => this.doPry(arg),
       flee: () => this.doFlee(arg),
@@ -516,12 +620,14 @@ export class Game {
     const d = { north: [0, -1], east: [1, 0], south: [0, 1], west: [-1, 0] }[dir];
     const nx = this.s.pos.x + d[0], ny = this.s.pos.y + d[1];
     if (!inBounds(nx, ny)) return;
+    this.s.prevPos = { ...this.s.pos };
     this.s.pos = { x: nx, y: ny, b: null, r: null };
     this.markVisited();
     this.describeHere();
     const r = this.live();
     if (r.chance(0.18)) this.say(r.pick(TABLES.ambient_event), 'flavor');
-    this.spend(COSTS.move);
+    this.spend(this.moveCost());
+    if (this.s.mode === 'explore') this.checkRaiders();
   }
 
   doEnter(slot) {
@@ -559,14 +665,187 @@ export class Game {
     this.spend(COSTS.pry);
   }
 
+  // ---- scouting ----------------------------------------------------------
+
+  doScout() {
+    const r = this.live();
+    this.say(r.pick(SCOUT_START), 'info');
+    for (const n of neighbors(this.s.pos.x, this.s.pos.y)) {
+      const cell = getCell(this.s.seed, n.x, n.y);
+      const zeds = this.s.zombies.filter((z) => z.x === n.x && z.y === n.y && z.b === null).length;
+      const bits = [];
+      bits.push(zeds === 0 ? 'no movement' : zeds === 1 ? 'one of the dead in the open' : `${zeds} of the dead in the open`);
+      if (cell.buildings.length) bits.push(cell.buildings.map((b) => b.label).slice(0, 2).join(', '));
+      if (this.s.survivors.some((sv) => !sv.met && sv.home.x === n.x && sv.home.y === n.y)) bits.push('smoke rising');
+      if (this.s.raiders.some((g) => this.s.raiderKnown[g.id] && Math.abs(g.x - n.x) + Math.abs(g.y - n.y) <= 1)) bits.push('raider territory');
+      this.s.known[`c:${n.x},${n.y}`] = true;
+      const dirName = n.dir[0].toUpperCase() + n.dir.slice(1);
+      this.say(`${dirName} — ${cell.name}: ${bits.join('; ')}.`, 'system');
+    }
+    this.spend(COSTS.scout);
+  }
+
+  doListen() {
+    const r = this.live();
+    this.say(r.pick(LISTEN_START), 'info');
+    const bld = this.building;
+    for (const adjIdx of this.room.adj) {
+      const dest = bld.rooms[adjIdx];
+      const zed = this.s.zombies.some((z) => z.x === this.s.pos.x && z.y === this.s.pos.y && z.b === this.s.pos.b && z.r === adjIdx);
+      const pool = zed ? LISTEN_ZED : LISTEN_QUIET;
+      this.say(fill(r, r.pick(pool), { room: dest.type }), zed ? 'danger' : 'system');
+    }
+    this.spend(COSTS.listen);
+  }
+
+  // ---- barricade ----------------------------------------------------------
+
+  doBarricade() {
+    const s = this.s;
+    if (!this.indoors || s.shelters[locKey(s.pos)]) return;
+    if ((s.inv.crowbar || 0) === 0) {
+      if ((s.inv.rope || 0) === 0) return;
+      s.inv.rope -= 1;
+      if (s.inv.rope <= 0) delete s.inv.rope;
+    }
+    s.shelters[locKey(s.pos)] = true;
+    s.noise += 2;
+    this.say(this.live().pick(BARRICADE_LINES), 'safe');
+    this.addGrit(2);
+    this.spend(COSTS.barricade);
+  }
+
+  // ---- distraction --------------------------------------------------------
+
+  doThrowBottle() {
+    const s = this.s;
+    if ((s.inv.bottle || 0) === 0) return;
+    s.inv.bottle -= 1;
+    if (s.inv.bottle <= 0) delete s.inv.bottle;
+    const r = this.live();
+    // everything here and nearby drags off toward the sound
+    const here = locKey(s.pos);
+    for (const z of s.zombies) {
+      const near = Math.abs(z.x - s.pos.x) + Math.abs(z.y - s.pos.y) <= 1;
+      if (locKey(z) === here || (near && z.b === null)) {
+        const n = r.pick(neighbors(s.pos.x, s.pos.y));
+        const away = neighbors(n.x, n.y).filter((c) => !(c.x === s.pos.x && c.y === s.pos.y));
+        const n2 = away.length ? r.pick(away) : n;
+        z.x = n2.x; z.y = n2.y; z.b = null; z.r = null; z.hunt = 0; z.followed = false;
+      }
+    }
+    this.say(r.pick(BOTTLE_LINES), 'safe');
+    s.stats.energy = Math.max(0, s.stats.energy - COSTS.throw.energy);
+    this.passTime(COSTS.throw.minutes);
+    if (s.mode === 'dead') return;
+    s.mode = 'explore';
+    this.checkEncounter();
+  }
+
+  // ---- raiders ------------------------------------------------------------
+
+  activeRaider() {
+    return this.s.raiders.find((g) => g.id === this.s.raiderActive) || null;
+  }
+
+  checkRaiders() {
+    const s = this.s;
+    if (this.indoors) return;
+    for (const g of s.raiders) {
+      if (Math.abs(g.x - s.pos.x) + Math.abs(g.y - s.pos.y) > 1) continue;
+      if (g.respect) continue;
+      if (g.lastShakeDay === s.day) continue;
+      g.lastShakeDay = s.day;
+      s.raiderKnown[g.id] = true;
+      if (g.peaceUntil >= s.day) {
+        this.say(RAIDER_PEACE_NOTE, 'talk');
+        return;
+      }
+      g.met = true;
+      s.mode = 'raider';
+      s.raiderActive = g.id;
+      const r = this.live();
+      this.say(r.pick(RAIDER_MEET), 'danger');
+      this.say(`${RAIDER_NAMES[g.nameIdx][0].toUpperCase() + RAIDER_NAMES[g.nameIdx].slice(1)}. ` + fill(r, r.pick(RAIDER_DEMAND), { item: itemName(g.demand) }), 'talk');
+      return;
+    }
+  }
+
+  doRaiderGive() {
+    const g = this.activeRaider();
+    const s = this.s;
+    if (!g || (s.inv[g.demand] || 0) <= 0) return;
+    s.inv[g.demand] -= 1;
+    if (s.inv[g.demand] <= 0) delete s.inv[g.demand];
+    g.peaceUntil = s.day + 3;
+    s.mode = 'explore';
+    s.raiderActive = null;
+    this.say(this.live().pick(RAIDER_PAY), 'talk');
+    this.passTime(5);
+  }
+
+  doRaiderRefuse() {
+    const g = this.activeRaider();
+    const s = this.s;
+    if (!g) return;
+    const r = this.live();
+    let p = 0.15;
+    if ((s.inv.knife || 0) > 0) p += 0.2;
+    if (this.gritLevel >= 2) p += 0.1;
+    if (this.gritLevel >= 4) p += 0.25;
+    s.stats.energy = Math.max(0, s.stats.energy - 2);
+    if (r.chance(Math.min(0.75, p))) {
+      g.respect = true;
+      s.mode = 'explore';
+      s.raiderActive = null;
+      this.say(r.pick(RAIDER_WIN), 'safe');
+      this.addGrit(4);
+    } else {
+      const ids = Object.keys(s.inv);
+      const lost = [];
+      for (let i = 0; i < Math.min(2, ids.length); i++) {
+        const id = r.pick(ids.filter((x) => s.inv[x] > 0));
+        if (!id) break;
+        s.inv[id] -= 1;
+        if (s.inv[id] <= 0) delete s.inv[id];
+        lost.push(itemName(id).toLowerCase());
+      }
+      const dmg = r.int(4, 10);
+      s.stats.health = Math.max(1, s.stats.health - dmg);
+      g.peaceUntil = s.day + 1;
+      s.mode = 'explore';
+      s.raiderActive = null;
+      this.say(`${r.pick(RAIDER_LOSE)}${lost.length ? ` They took ${lost.join(' and ')}.` : ''} (−${dmg} health)`, 'danger');
+    }
+    this.passTime(5);
+  }
+
+  doRaiderBack() {
+    const s = this.s;
+    const g = this.activeRaider();
+    if (s.prevPos) {
+      s.pos = { ...s.prevPos, b: null, r: null };
+    }
+    s.mode = 'explore';
+    s.raiderActive = null;
+    this.say(this.live().pick(RAIDER_BACK), 'info');
+    if (g) g.lastShakeDay = 0; // they'll be waiting if you come back
+    s.stats.energy = Math.max(0, s.stats.energy - COSTS.back_away.energy);
+    this.passTime(COSTS.back_away.minutes);
+    if (s.mode === 'dead') return;
+    this.markVisited();
+    this.describeHere();
+  }
+
   doSearch() {
     const s = this.s;
     const k = locKey(s.pos);
     const count = s.searched[k] || 0;
     s.searched[k] = count + 1;
-    s.noise += 2;
+    s.noise += this.gritLevel >= 2 ? 1 : 2;
     const r = rngFor(s.seed, 'loot', k, count);
     let bonus = 0;
+    if (this.gritLevel >= 2) bonus += 1;
     if (this.indoors && this.room.locked) bonus += 1;
     if (this.isNight && (s.inv.flashlight || 0) > 0) bonus += 0; // flashlight just cancels the night penalty
     if (this.isNight && !(s.inv.flashlight || 0)) bonus -= 1;
@@ -576,6 +855,7 @@ export class Game {
       for (const it of found) s.inv[it] = (s.inv[it] || 0) + 1;
       const names = found.map((i) => itemName(i).toLowerCase()).join(', ');
       this.say(fill(this.live(), this.live().pick(TABLES.search_find), { itemlist: names }), 'loot');
+      if (count === 0) this.addGrit(1);
     } else {
       this.say(fill(this.live(), this.live().pick(TABLES.search_empty)), 'info');
     }
@@ -583,7 +863,7 @@ export class Game {
   }
 
   doRest() {
-    this.s.stats.energy = Math.min(100, this.s.stats.energy + 12);
+    this.s.stats.energy = Math.min(100, this.s.stats.energy + (this.gritLevel >= 5 ? 18 : 12));
     this.say(this.pickVaried(REST_LINES, 'rest'), 'info');
     this.spend(COSTS.rest);
   }
@@ -612,6 +892,7 @@ export class Game {
     if (safety.level === 'indoors') gain += 15;
     if (safety.level === 'safe') gain += 30;
     if ((s.inv.sleeping_bag || 0) > 0) gain += 10;
+    if (this.gritLevel >= 5) gain += 10;
 
     // danger while sleeping rough or sheltered: the dead wander
     if (safety.level !== 'safe') {
@@ -646,6 +927,24 @@ export class Game {
     if (sv.trust < 3) {
       this.say(SURVIVOR_NEED_LINE[sv.need] || `They could use ${itemName(sv.need).toLowerCase()}.`, 'talk');
     }
+    // people talk: warnings about raiders, introductions to others
+    if (sv.trust >= 1 && !sv.warned) {
+      sv.warned = true;
+      const g = this.s.raiders.find((x) => !this.s.raiderKnown[x.id]);
+      if (g) {
+        this.s.raiderKnown[g.id] = true;
+        this.s.known[`c:${g.x},${g.y}`] = true;
+        this.say(`${sv.name}: ` + fill(r, r.pick(RAIDER_WARN), { gang: RAIDER_NAMES[g.nameIdx] }), 'talk');
+      }
+    }
+    if (sv.trust >= 2 && !sv.vouched) {
+      sv.vouched = true;
+      const other = this.s.survivors.find((v) => v.id !== sv.id && !v.met);
+      if (other) {
+        this.s.known[`c:${other.home.x},${other.home.y}`] = true;
+        this.say(`${sv.name}: ` + r.pick(SURVIVOR_VOUCH), 'talk');
+      }
+    }
     this.s.stats.energy = Math.max(0, this.s.stats.energy - COSTS.talk.energy);
     this.passTime(COSTS.talk.minutes);
   }
@@ -657,6 +956,7 @@ export class Game {
     if (this.s.inv[sv.need] <= 0) delete this.s.inv[sv.need];
     sv.given += 1;
     sv.trust = Math.min(3, sv.trust + 1);
+    this.addGrit(3);
     const r = this.live();
     this.say(r.pick(SURVIVOR_THANKS), 'talk');
     const role = SURVIVOR_ROLES[sv.role];
@@ -742,13 +1042,16 @@ export class Game {
     // shove first: put it down, or it has hold of you
     let knocked = false;
     let attacked = false;
+    let dmg = 0;
     if (verb.knock) {
-      if (r.chance(verb.knock)) {
+      const knockChance = verb.knock + (this.gritLevel >= 4 ? 0.10 : 0);
+      if (r.chance(knockChance)) {
         knocked = true;
         this.say(r.pick(TABLES.shove_ok), 'info');
+        this.addGrit(3);
       } else {
         attacked = true;
-        const dmg = r.int(10, 18);
+        dmg = r.int(10, 18);
         s.stats.health -= dmg;
         this.say(`${r.pick(TABLES.shove_fail)} (−${dmg} health)`, 'danger');
       }
@@ -759,19 +1062,26 @@ export class Game {
       let attackChance = verb.attack;
       if (pursuers.length > 1) attackChance += 0.15;
       if (energyBefore < 25) attackChance += 0.15;
+      if (this.gritLevel >= 3) attackChance -= 0.08;
       if (r.chance(attackChance)) {
         attacked = true;
-        const dmg = r.int(7, 15);
+        dmg = r.int(7, 15);
         s.stats.health -= dmg;
         this.say(`${r.pick(TABLES.zed_attack)} (−${dmg} health)`, 'danger');
       } else {
         this.say(fill(r, r.pick(TABLES.flee_ok)), 'info');
+        this.addGrit(2);
       }
     }
     if (s.stats.health <= 0) {
       s.stats.health = 0;
       this.die('zed');
       return;
+    }
+    // deep wounds keep bleeding until wrapped
+    if (attacked && !s.conditions.bleeding && (dmg >= 12 || r.chance(0.3))) {
+      s.conditions.bleeding = true;
+      this.say(r.pick(BLEED_START), 'danger');
     }
 
     this.s.noise += 2;
@@ -836,7 +1146,12 @@ export class Game {
       s.inv[itemId] -= 1;
       if (s.inv[itemId] <= 0) delete s.inv[itemId];
       s.stats.health = Math.min(100, s.stats.health + (def.health || 0));
-      this.say(this.pickVaried(MED_LINES, 'med'), 'info');
+      if (s.conditions.bleeding && (itemId === 'bandage' || itemId === 'medkit')) {
+        s.conditions.bleeding = false;
+        this.say(BLEED_STOP, 'safe');
+      } else {
+        this.say(this.pickVaried(MED_LINES, 'med'), 'info');
+      }
       this.passTime(COSTS.eat.minutes);
     } else if (itemId === 'map_scrap') {
       s.inv[itemId] -= 1;
@@ -876,9 +1191,11 @@ export class Game {
         const sv = this.s.survivors.find((v) => (v.met || visited) && v.home.x === x && v.home.y === y);
         const zeds = this.s.zedKnownDay >= this.s.day
           ? this.s.zombies.filter((z) => z.x === x && z.y === y).length : 0;
+        const shelter = Object.keys(this.s.shelters).some((k) => k.startsWith(`r:${x},${y},`));
+        const raider = this.s.raiders.some((g) => this.s.raiderKnown[g.id] && g.x === x && g.y === y);
         cells.push({
           x, y, type: cell.type, name: cell.name, visited, known,
-          buildings: cell.buildings.length, survivor: !!sv, zeds,
+          buildings: cell.buildings.length, survivor: !!sv, zeds, shelter, raider,
           here: this.s.pos.x === x && this.s.pos.y === y,
         });
       }
@@ -914,6 +1231,14 @@ export class Game {
       if (Array.isArray(s.survivors)) {
         for (const sv of s.survivors) { if (sv.introduced === undefined) sv.introduced = sv.met; }
       }
+      // migrate pre-v0.12 saves: new systems get their defaults
+      if (!s.raiders) s.raiders = genRaiders(s.seed).map((g) => ({ ...g, met: false, respect: false, peaceUntil: 0, lastShakeDay: 0 }));
+      s.raiderKnown = s.raiderKnown || {};
+      s.grit = s.grit || { xp: 0, level: 0 };
+      s.conditions = s.conditions || {};
+      s.shelters = s.shelters || {};
+      s.lastGritDay = s.lastGritDay || s.day;
+      if (s.prevPos === undefined) s.prevPos = null;
       // migrate pre-feed saves: give log entries sequence numbers
       if (Array.isArray(s.log)) {
         let seq = 0;

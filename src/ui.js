@@ -68,18 +68,26 @@ export class UI {
     $('#hud-day').innerHTML = `${icon(g.isNight ? 'night' : 'day')}<span>Day ${g.s.day}</span>`;
     $('#hud-time').textContent = g.timeString();
     $('#hud-wx').innerHTML = `${icon(WX_ICON[wx])}<span>${WX_LABEL[wx]}</span>`;
+    const grit = g.s.grit || { level: 0, xp: 0 };
+    const gritEl = $('#hud-grit');
+    gritEl.classList.toggle('hidden', grit.level === 0);
+    if (grit.level > 0) {
+      gritEl.innerHTML = `${icon('knife')}<span>${grit.level}</span>`;
+      gritEl.title = `Grit ${grit.level} — this city is teaching you`;
+    }
   }
 
   renderStats() {
     const st = this.g.s.stats;
+    const bleeding = !!(this.g.s.conditions && this.g.s.conditions.bleeding);
     const bars = [
-      ['energy', 'energy', st.energy],
-      ['health', 'health', st.health],
-      ['hunger', 'hunger', st.hunger],
-      ['warmth', st.warmth < 40 ? 'cold' : 'hot', st.warmth],
+      ['energy', 'energy', st.energy, ''],
+      ['health', 'health', st.health, bleeding ? 'stat-bleed' : ''],
+      ['hunger', 'hunger', st.hunger, ''],
+      ['warmth', st.warmth < 40 ? 'cold' : 'hot', st.warmth, ''],
     ];
-    $('#stats').innerHTML = bars.map(([key, ic, val]) => `
-      <div class="stat stat-${key} ${val < 25 ? 'stat-low' : ''}" title="${key}: ${Math.round(val)}">
+    $('#stats').innerHTML = bars.map(([key, ic, val, extra]) => `
+      <div class="stat stat-${key} ${val < 25 ? 'stat-low' : ''} ${extra}" title="${key}: ${Math.round(val)}${extra ? ' — bleeding' : ''}">
         ${icon(ic)}
         <div class="bar"><div class="bar-fill" style="width:${Math.max(0, Math.min(100, val))}%"></div></div>
       </div>`).join('');
@@ -113,20 +121,24 @@ export class UI {
     const g = this.g;
     const acts = g.actions();
     const encounter = g.s.mode === 'encounter';
+    const raider = g.s.mode === 'raider';
     const banner = $('#danger-banner');
-    banner.classList.toggle('hidden', !encounter);
+    banner.classList.toggle('hidden', !encounter && !raider);
     if (encounter) banner.innerHTML = `${icon('zombie')}<span>The dead are here. Run.</span>`;
+    else if (raider) banner.innerHTML = `${icon('survivor')}<span>The living. They want something.</span>`;
 
     // contextual chips: escape tactics in an encounter, otherwise the
     // situational stuff (doors, buildings, people)
     const ctxIds = encounter
-      ? ['set_verb']
-      : ['enter', 'goroom', 'exit_building', 'pry', 'talk', 'give', 'ask_help', 'sleep_safe', 'leave_talk'];
+      ? ['set_verb', 'throw_bottle']
+      : raider
+        ? ['raider_give', 'raider_refuse', 'raider_back']
+        : ['enter', 'goroom', 'exit_building', 'pry', 'talk', 'give', 'ask_help', 'sleep_safe', 'leave_talk', 'scout', 'listen', 'barricade'];
     const ctx = acts.filter((a) => ctxIds.includes(a.id));
     const ctxEl = $('#ctx');
     ctxEl.classList.toggle('hidden', !ctx.length);
     ctxEl.innerHTML = ctx.map((a, i) => `
-      <button class="chip-act ${encounter ? 'chip-flee' : ''} ${a.selected ? 'selected' : ''}" data-i="${i}" ${a.disabled ? 'disabled' : ''}
+      <button class="chip-act ${encounter || raider ? 'chip-flee' : ''} ${a.selected ? 'selected' : ''}" data-i="${i}" ${a.disabled ? 'disabled' : ''}
         title="${a.reason || a.sub || ''} · ${a.cost ? a.cost.minutes + '′' : ''}">
         ${icon(a.icon)}<span>${a.label}</span>${costBadge(a.cost)}
       </button>`).join('');
@@ -254,13 +266,15 @@ export class UI {
         if (c.here) cls.push('mc-here');
         let mark = '';
         if (c.here) mark = '◉';
+        else if (c.raider) mark = '<span class="mc-raider">✕</span>';
         else if (c.zeds) mark = `<span class="mc-zed">${c.zeds}</span>`;
+        else if (c.shelter) mark = '<span class="mc-shelter">▣</span>';
         else if (c.survivor) mark = '<span class="mc-sv">☗</span>';
         else if (c.buildings) mark = '<span class="mc-b">▪</span>';
         html += `<div class="${cls.join(' ')}" title="${c.name}">${mark}</div>`;
       }
     }
-    html += '</div><div class="map-legend">◉ you · ▪ buildings · ☗ survivor · dim = heard about, not seen</div>';
+    html += '</div><div class="map-legend">◉ you · ▪ buildings · ☗ survivor · ▣ your shelter · ✕ raiders · dim = heard about, not seen</div>';
     el.innerHTML = html;
   }
 

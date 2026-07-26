@@ -21,6 +21,7 @@ export const ITEMS = {
   battery: { name: 'Batteries', icon: 'battery', kind: 'misc', flavor: 'Cells with some charge left.' },
   rope: { name: 'Rope', icon: 'rope', kind: 'misc', flavor: 'Ten meters of climbing-grade line.' },
   knife: { name: 'Knife', icon: 'knife', kind: 'tool', flavor: 'A short fixed blade, still sharp.' },
+  bottle: { name: 'Glass bottle', icon: 'soda', kind: 'tool', flavor: 'Empty, and heavy enough to throw far. Breaking glass carries.' },
   key: { name: 'Odd key', icon: 'key', kind: 'misc', flavor: 'A key without a door, so far.' },
   radio: { name: 'Pocket radio', icon: 'radio', kind: 'misc', flavor: 'Static on every band. Almost every band.' },
   map_scrap: { name: 'Map fragment', icon: 'map', kind: 'misc', flavor: 'A torn city map with someone’s marks on it.' },

@@ -462,7 +462,7 @@ export const BUILDINGS = {
       'A tavern with its window painted over from the inside, in broad, hurried strokes.',
     ],
     rooms: ['barroom', 'back room', 'cellar'],
-    loot: [['soda', 3], ['water', 2], ['matches', 2], ['knife', 1], ['key', 1], ['cracker', 1]],
+    loot: [['soda', 3], ['bottle', 3], ['water', 2], ['matches', 2], ['knife', 1], ['key', 1], ['cracker', 1]],
   },
   theater: {
     label: 'theater', icon: 'flashlight',
@@ -695,6 +695,93 @@ export const SMOKE_HINT = [
   'From {bname}, faint but unmistakable: woodsmoke, and something cooking.',
 ];
 
+// Scouting ---------------------------------------------------------------
+export const LISTEN_QUIET = [
+  'Nothing moves behind the {room} door.',
+  'Silence on the other side of the {room} door.',
+];
+export const LISTEN_ZED = [
+  'A slow dragging sound behind the {room} door.',
+  'Something bumps against the far side of the {room} door, and again.',
+  'Behind the {room} door: a low, wet breathing that is not breathing.',
+];
+export const SCOUT_START = [
+  'You find an angle with cover and study each approach in turn.',
+  'You climb onto a hood, keep low, and glass the block the slow way.',
+];
+export const LISTEN_START = [
+  'You put your ear to each door in turn and hold your breath.',
+];
+
+// Barricades --------------------------------------------------------------
+export const BARRICADE_LINES = [
+  'You wedge the frame with scrap, drag shelving against the door, and lash it down. This room will hold.',
+  'You brace the door with everything movable and tie it off. Nothing gets in here without waking you.',
+];
+
+// Distraction -------------------------------------------------------------
+export const BOTTLE_LINES = [
+  'The bottle bursts somewhere down the block. The dead turn toward the sound and drag away after it.',
+  'Glass shatters two streets over. Everything dead in earshot moves toward it, away from you.',
+];
+
+// Raiders -----------------------------------------------------------------
+export const RAIDER_NAMES = ['the Foundry crew', 'Halsey’s people', 'the Tollmen', 'the Yard dogs', 'the Ninth Street lot'];
+export const RAIDER_MEET = [
+  'Figures step out ahead — three of them, spread across the road, unhurried. Living, and armed with pipe and bar.',
+  'A short whistle from a rooftop. By the time you find the source, two more have stepped out of doorways behind you.',
+  'They come out from behind a van like they were waiting, because they were. The living kind, armed.',
+];
+export const RAIDER_DEMAND = [
+  '“Toll. {item}, and you walk on.”',
+  '“You carry, we collect. {item}. Now.”',
+  '“Simple trade. {item}, and nobody has a bad day.”',
+];
+export const RAIDER_PAY = [
+  'They take it without thanks. “Smart. Walk on.” The road opens.',
+  'The item disappears into a coat. They step aside, already scanning the street for the next one.',
+];
+export const RAIDER_WIN = [
+  'You square up and do not step back. They read something in it, trade a look, and wave you past.',
+  'You put a hand on the knife and let them do the math. The math comes out in your favor. They drift back into the doorways.',
+];
+export const RAIDER_LOSE = [
+  'It goes badly. A pipe catches your ribs, hands go through your pack, and they leave you on the pavement with less than you had.',
+  'Two of them hold you against the van while a third goes through your pack. Then a parting shove into the gutter.',
+];
+export const RAIDER_BACK = [
+  'You back away slowly, hands visible, and they let you go.',
+  'You retreat the way you came. A whistle follows you, mocking, but nothing else does.',
+];
+export const RAIDER_WARN = [
+  '“Word of warning — {gang} work that part of the city. They take what they want. Stay wide of it. I’ll mark it for you.”',
+];
+export const RAIDER_PEACE_NOTE = 'They recognize you and wave you through. The toll holds, for now.';
+export const SURVIVOR_VOUCH = [
+  '“There’s someone you should meet. Good hands, fair dealer. I’ll mark where they hole up — tell them the description of me and you’ll do fine.”',
+];
+
+// Grit --------------------------------------------------------------------
+export const GRIT_LEVELS = [
+  { name: 'Sure-footed', desc: 'moving costs less energy' },
+  { name: 'Light hands', desc: 'searches are quieter and find more' },
+  { name: 'Cool head', desc: 'harder to catch when you escape' },
+  { name: 'Iron grip', desc: 'stronger shoves, harder to rob' },
+  { name: 'Second wind', desc: 'rest and sleep restore more' },
+];
+export const GRIT_UP = 'This city is teaching you. You are getting better at this. ({name} — {desc})';
+
+// Bleeding ----------------------------------------------------------------
+export const BLEED_START = [
+  'The wound is deep, and it keeps bleeding.',
+  'This one will not close on its own. Blood runs warm under your sleeve.',
+];
+export const BLEED_STOP = 'You wrap the wound tight. The bleeding stops.';
+export const BLEED_WARN = [
+  'You are still bleeding. It needs wrapping.',
+  'Blood is soaking through the cloth. The dead can smell it.',
+];
+
 // Misc lines --------------------------------------------------------------
 export const REST_LINES = [
   'You sit with your back to a wall and let your breathing slow.',
@@ -747,6 +834,7 @@ export const HUNGER_WARNING = [
   'Your stomach cramps around nothing.',
 ];
 export const DEATH_COLD = ['The cold stops hurting. You sit down against a wall and do not get up.'];
+export const DEATH_BLEED = ['The wound wins. Your sight narrows, and the pavement comes up slowly.'];
 export const DEATH_HUNGER = ['Your body has nothing left to spend. Your legs fold under you.'];
 export const DEATH_ZED = ['Weight drives you down. Cold hands, and the pavement against your cheek.'];
 

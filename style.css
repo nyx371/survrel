@@ -98,6 +98,7 @@ button.menu-item:hover { border-color: var(--accent); }
 .stat-hunger { color: var(--hunger); } .stat-hunger .bar-fill { background: var(--hunger); }
 .stat-warmth { color: var(--warmth); } .stat-warmth .bar-fill { background: var(--warmth); }
 .stat-low { animation: pulse 1.4s ease-in-out infinite; }
+.stat-bleed { border-color: var(--danger); animation: pulse 1.4s ease-in-out infinite; }
 @keyframes pulse { 50% { border-color: var(--danger); } }
 
 #locbar {
@@ -274,6 +275,8 @@ button.mini-dim { color: var(--ink-faint); }
 .mc-b { color: var(--ink-faint); }
 .mc-sv { color: var(--talk); }
 .mc-zed { color: var(--danger); font-weight: 700; }
+.mc-raider { color: var(--danger); font-weight: 700; }
+.mc-shelter { color: var(--accent); }
 .map-legend { margin-top: 8px; font-size: 11px; color: var(--ink-faint); }
 
 /* death ------------------------------------------------------------------ */
