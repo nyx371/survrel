@@ -3,6 +3,10 @@
 // index.html so browsers fetch the new files immediately.
 export const CHANGELOG = [
   {
+    v: '0.16',
+    note: 'Atmosphere: new text types itself out word by word (tap to skip), the light changes with the hour — darker palette at night, cold at dawn — a red pulse closes in from the screen edges when the dead or the living have you cornered, a fainter one lingers while you bleed, and danger lines flicker in like a failing bulb.',
+  },
+  {
     v: '0.15',
     note: 'Interactive fiction mode: actions are now woven into the story itself as links, energy costs inline — no button dock. It reads like a page and plays like one. Prefer the buttons? The menu switches back any time.',
   },

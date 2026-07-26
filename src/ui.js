@@ -8,6 +8,36 @@ import { CITY_W, CITY_H } from './world.js';
 
 const $ = (sel) => document.querySelector(sel);
 
+// Word-by-word reveal: wraps words of newly added blocks in staggered spans.
+// Fast (capped ~2s per batch), skippable by tapping the feed.
+function revealWords(root, startDelay) {
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  const nodes = [];
+  while (walker.nextNode()) {
+    if (walker.currentNode.textContent.trim()) nodes.push(walker.currentNode);
+  }
+  const spans = [];
+  for (const n of nodes) {
+    const frag = document.createDocumentFragment();
+    for (const part of n.textContent.split(/(\s+)/)) {
+      if (!part) continue;
+      if (/^\s+$/.test(part)) {
+        frag.appendChild(document.createTextNode(part));
+      } else {
+        const s = document.createElement('span');
+        s.className = 'tw';
+        s.textContent = part;
+        frag.appendChild(s);
+        spans.push(s);
+      }
+    }
+    n.parentNode.replaceChild(frag, n);
+  }
+  const step = Math.min(30, Math.max(10, 1800 / Math.max(1, spans.length)));
+  spans.forEach((s, i) => { s.style.animationDelay = `${startDelay + i * step}ms`; });
+  return startDelay + spans.length * step;
+}
+
 const WX_ICON = { clear: 'day', overcast: 'day', rain: 'rain', snap: 'snow' };
 const WX_LABEL = { clear: 'clear', overcast: 'overcast', rain: 'rain', snap: 'cold snap' };
 const ARROWS = { north: '↑', east: '→', south: '↓', west: '←' };
@@ -50,14 +80,17 @@ export class UI {
 
   render() {
     const s = this.g.s;
+    this._twDelay = 0;
     this.renderHeader();
     this.renderStats();
     this.renderLocbar();
     this.renderFeed();
     this.renderDock();
     this.renderPanel();
+    this.renderAtmosphere();
     $('#death').classList.toggle('hidden', s.mode !== 'dead');
     if (s.mode === 'dead') this.renderDeath();
+    this._booted = true;
     // scroll after the dock has rendered: a grown dock (encounter banner,
     // tactics, exits) shrinks the feed after the fact and would hide the
     // newest lines. The rAF pass catches the post-layout height.
@@ -114,6 +147,7 @@ export class UI {
   renderFeed() {
     const feed = $('#feed');
     const fresh = this.g.s.log.filter((l) => (l.seq || 0) > this.lastSeq);
+    if (fresh.length) feed.classList.remove('tw-done');
     for (const l of fresh) {
       const div = document.createElement('div');
       if (l.kind === 'scene') {
@@ -125,9 +159,22 @@ export class UI {
         div.textContent = l.text;
       }
       feed.appendChild(div);
+      // type out new content — but not the restored history on first paint
+      if (this._booted) this._twDelay = revealWords(div, this._twDelay);
       this.lastSeq = l.seq || this.lastSeq;
     }
     while (feed.children.length > 150) feed.removeChild(feed.firstChild);
+  }
+
+  renderAtmosphere() {
+    const g = this.g;
+    document.body.dataset.phase = g.dayPhase;
+    const st = g.s.stats;
+    const veil = $('#veil');
+    const danger = g.s.mode === 'encounter' || g.s.mode === 'raider';
+    const hurt = st.health < 25 || (g.s.conditions && g.s.conditions.bleeding);
+    veil.classList.toggle('veil-danger', danger);
+    veil.classList.toggle('veil-hurt', !danger && hurt && g.s.mode !== 'dead');
   }
 
   renderDock() {
@@ -354,6 +401,7 @@ export class UI {
       });
     });
     feed.appendChild(div);
+    if (this._booted) this._twDelay = revealWords(div, this._twDelay);
   }
 
   renderPanel() {

@@ -25,6 +25,11 @@ const ui = new UI(game, {
   },
 });
 
+// tap the stream to skip the typewriter reveal
+document.getElementById('feed').addEventListener('pointerdown', (e) => {
+  if (!e.target.closest('a.al')) document.getElementById('feed').classList.add('tw-done');
+});
+
 document.getElementById('btn-inv').addEventListener('click', () => ui.togglePanel('inv'));
 document.getElementById('btn-map').addEventListener('click', () => ui.togglePanel('map'));
 
