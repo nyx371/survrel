@@ -31,6 +31,14 @@ export class UI {
     this.cb = callbacks; // { onAction(id, arg), onNewGame(), onUseItem(id), onDropItem(id) }
     this.panel = null; // null | 'inv' | 'map'
     this.lastSeq = 0;
+    // 'story' weaves actions into the prose as links; 'buttons' is the dock
+    this.uiMode = (typeof localStorage !== 'undefined' && localStorage.getItem('survrel.uimode')) || 'story';
+  }
+
+  setUiMode(mode) {
+    this.uiMode = mode;
+    try { localStorage.setItem('survrel.uimode', mode); } catch (e) { /* ignore */ }
+    this.render();
   }
 
   setGame(game) {
@@ -132,6 +140,18 @@ export class UI {
     if (encounter) banner.innerHTML = `${icon('zombie')}<span>The dead are here. Run.</span>`;
     else if (raider) banner.innerHTML = `${icon('survivor')}<span>The living. They want something.</span>`;
 
+    if (this.uiMode === 'story') {
+      // story mode: actions live inside the feed as prose links
+      $('#ctx').classList.add('hidden');
+      $('#nav').classList.add('hidden');
+      $('#std-acts').innerHTML = '';
+      this.renderPrompt(acts);
+      this.renderPackMap();
+      return;
+    }
+    const oldPrompt = $('#feed .prompt');
+    if (oldPrompt) oldPrompt.remove();
+
     // contextual chips: escape tactics in an encounter, otherwise the
     // situational stuff (doors, buildings, people)
     const ctxIds = encounter
@@ -215,7 +235,11 @@ export class UI {
       });
     });
 
-    // pack & map
+    this.renderPackMap();
+  }
+
+  renderPackMap() {
+    const g = this.g;
     const invCount = Object.values(g.s.inv).reduce((a, b) => a + b, 0);
     $('#btn-inv').innerHTML = `${icon('backpack')}<span class="badge badge-count">${invCount}</span>`;
     $('#btn-inv').title = `Pack — ${invCount} item${invCount === 1 ? '' : 's'}`;
@@ -223,6 +247,113 @@ export class UI {
     $('#btn-map').title = 'Map';
     $('#btn-inv').classList.toggle('active', this.panel === 'inv');
     $('#btn-map').classList.toggle('active', this.panel === 'map');
+  }
+
+  // ---- story mode: actions woven into the prose ---------------------------
+
+  renderPrompt(acts) {
+    const g = this.g;
+    const feed = $('#feed');
+    const old = feed.querySelector('.prompt');
+    if (old) old.remove();
+    if (g.s.mode === 'dead') return;
+
+    const cost = (a) => {
+      if (!a.cost) return '';
+      if (a.id === 'rest' || a.id === 'sleep' || a.id === 'sleep_safe') return `<span class="al-cost al-gain">${icon('energy')}+</span>`;
+      return a.cost.energy ? `<span class="al-cost">${icon('energy')}${a.cost.energy}</span>` : '';
+    };
+    const link = (a, label) => a.disabled
+      ? `<span class="al-off">${label}${cost(a)} <em>(${a.reason || a.sub || ''})</em></span>`
+      : `<a class="al" data-idx="${a.idx}">${label}</a>${cost(a)}`;
+    const dim = (t) => `<span class="al-sub">${t}</span>`;
+    const lower = (t) => t ? t[0].toLowerCase() + t.slice(1) : t;
+    const listJoin = (parts) => parts.length === 1 ? parts[0]
+      : parts.slice(0, -1).join(', ') + (parts.length > 2 ? ',' : '') + ' or ' + parts[parts.length - 1];
+
+    const indexed = acts.map((a, idx) => ({ ...a, idx }));
+    const by = (id) => indexed.filter((a) => a.id === id);
+    const used = new Set();
+    const take = (id) => { used.add(id); return by(id); };
+    const paras = [];
+
+    if (g.s.mode === 'raider') {
+      const parts = [];
+      for (const a of take('raider_give')) parts.push(link(a, lower(a.label)));
+      for (const a of take('raider_refuse')) parts.push(link(a, 'stand your ground') + ' ' + dim(`(${a.sub})`));
+      for (const a of take('raider_back')) parts.push(link(a, 'back away'));
+      paras.push(`You could ${listJoin(parts)}.`);
+    } else if (g.s.mode === 'encounter') {
+      const verbs = take('set_verb').map((a) => a.selected
+        ? `<b class="al-sel">${lower(a.label)}</b>${cost(a)}`
+        : link(a, lower(a.label)));
+      paras.push(`How you run matters — ${listJoin(verbs)}.`);
+      const extras = [];
+      for (const a of take('fight')) extras.push(`${link(a, 'stand and fight')} ${dim(`(${a.sub})`)}`);
+      for (const a of take('throw_bottle')) extras.push(link(a, 'throw a bottle'));
+      if (extras.length) paras.push(`Or ${listJoin(extras)}.`);
+      const exits = take('flee').map((a) => link(a, lower(a.label)));
+      if (exits.length) paras.push(`Get out: ${listJoin(exits)}.`);
+    } else if (g.s.mode === 'talk') {
+      const parts = [];
+      for (const a of take('give')) parts.push(link(a, lower(a.label)));
+      for (const a of take('trade')) parts.push(link(a, `${lower(a.label)} ${a.sub}`));
+      for (const a of take('ask_help')) parts.push(link(a, 'ask for help'));
+      for (const a of take('sleep_safe')) parts.push(link(a, 'sleep here') + ' ' + dim(`(${a.sub})`));
+      for (const a of take('leave_talk')) parts.push(link(a, 'step away'));
+      paras.push(`You could ${listJoin(parts)}.`);
+    } else {
+      // explore
+      const moves = take('move');
+      if (moves.length) {
+        const parts = moves.map((a) => {
+          const dest = a.sub === 'unexplored' ? dim('(unexplored)') : dim(`(${a.sub})`);
+          const threat = a.threat ? ` <span class="al-threat">· ${a.threat} dead</span>` : a.threat === 0 ? ' <span class="al-clearmark">· clear</span>' : '';
+          return `${link(a, a.label.toLowerCase())} ${dest}${threat}`;
+        });
+        paras.push(`Streets lead ${listJoin(parts)}.`);
+      }
+      const enters = take('enter');
+      if (enters.length) {
+        paras.push(`You could step inside ${listJoin(enters.map((a) => link(a, a.label.replace(/^Enter /, ''))))}.`);
+      }
+      const rooms = take('goroom');
+      const outs = take('exit_building');
+      const prys = take('pry');
+      if (rooms.length || outs.length) {
+        const parts = rooms.map((a) => link(a, lower(a.label)));
+        let sentence = parts.length ? `Doors lead ${listJoin(parts)}` : '';
+        if (outs.length) sentence += `${parts.length ? '; the way out is ' : 'The way out is '}${link(outs[0], 'back to the street')}`;
+        paras.push(sentence + '.');
+        for (const a of prys) paras.push(`A locked door could give — ${link(a, lower(a.label))}.`);
+      }
+      for (const a of take('open_stash')) paras.push(`The lockbox waits — ${link(a, 'turn the odd key')}.`);
+      for (const a of take('talk')) paras.push(`${link(a, lower(a.label))}.`);
+      for (const a of take('barricade')) paras.push(`This room could be held — ${link(a, 'barricade it')}${a.sub === 'uses a rope' ? ' ' + dim('(uses a rope)') : ''}.`);
+      const utility = [];
+      for (const a of take('search')) utility.push(`${link(a, 'search')} ${dim(`(${a.sub})`)}`);
+      for (const a of take('scout')) utility.push(link(a, 'scout the block'));
+      for (const a of take('listen')) utility.push(link(a, 'listen at the doors'));
+      for (const a of take('fire')) utility.push(link(a, 'light a fire'));
+      for (const a of take('rest')) utility.push(link(a, 'rest'));
+      for (const a of take('sleep')) utility.push(`${link(a, 'sleep')} ${dim(`(${a.sub})`)}`);
+      if (utility.length) paras.push(`Otherwise you could ${listJoin(utility)}.`);
+    }
+
+    // safety net: anything the templates didn't place still gets a link
+    const leftovers = indexed.filter((a) => !used.has(a.id));
+    if (leftovers.length) paras.push(`Also: ${listJoin(leftovers.map((a) => link(a, lower(a.label))))}.`);
+
+    const div = document.createElement('div');
+    div.className = `prompt ${g.s.mode === 'encounter' || g.s.mode === 'raider' ? 'prompt-danger' : ''}`;
+    div.innerHTML = paras.map((p) => `<p>${p}</p>`).join('');
+    div.querySelectorAll('a.al').forEach((el) => {
+      el.addEventListener('click', () => {
+        const a = indexed[Number(el.dataset.idx)];
+        if (a && !a.disabled) this.cb.onAction(a.id, a.arg);
+      });
+    });
+    feed.appendChild(div);
   }
 
   renderPanel() {

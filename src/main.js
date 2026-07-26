@@ -50,6 +50,17 @@ document.addEventListener('click', (e) => {
     menu.classList.add('hidden');
   }
 });
+const uimodeBtn = document.getElementById('btn-uimode');
+function refreshUimodeBtn() {
+  uimodeBtn.textContent = ui.uiMode === 'story' ? '⊞ Show actions as buttons' : '¶ Weave actions into the story';
+}
+refreshUimodeBtn();
+uimodeBtn.addEventListener('click', () => {
+  ui.setUiMode(ui.uiMode === 'story' ? 'buttons' : 'story');
+  refreshUimodeBtn();
+  menu.classList.add('hidden');
+});
+
 document.getElementById('btn-new').addEventListener('click', () => {
   menu.classList.add('hidden');
   if (game.s.mode === 'dead' || confirm('Abandon this run and start a new city?')) {

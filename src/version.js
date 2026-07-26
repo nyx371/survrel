@@ -3,6 +3,10 @@
 // index.html so browsers fetch the new files immediately.
 export const CHANGELOG = [
   {
+    v: '0.15',
+    note: 'Interactive fiction mode: actions are now woven into the story itself as links, energy costs inline — no button dock. It reads like a page and plays like one. Prefer the buttons? The menu switches back any time.',
+  },
+  {
     v: '0.14',
     note: 'Fight back: with a knife or crowbar you can put the dead down for good — odds shown up front, failure has teeth. Trusted survivors now offer one barter deal a day. And some rooms hide bolted lockboxes: the odd keys you’ve been carrying finally have a purpose.',
   },

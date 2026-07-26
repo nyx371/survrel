@@ -72,7 +72,7 @@ export const TABLES = {
     'Something heavy was dragged along {streetname}. The marks run half the block and end at a storm drain.',
   ],
   intersection_open: [
-    'The intersection of {streetname} and {streetname2}. {skyline}. A tangle of {debris} blocks one corner.',
+    'The intersection of {streetname} and {streetname2}. {skyline}. Wreckage blocks one corner — {debris}.',
     'Two roads cross here — {streetname} and {streetname2}. The signal boxes are dead, and {debris} rusts against the curb.',
     '{streetname} meets {streetname2} at a wide crossing. Cars stand where they stopped mid-turn, and {debris} fills the lanes between them.',
     'A four-way crossing, {streetname} and {streetname2}. From the center you can see three blocks in every direction, and nothing moves in any of them.',
