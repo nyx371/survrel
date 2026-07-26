@@ -761,6 +761,21 @@ export const SURVIVOR_VOUCH = [
   '“There’s someone you should meet. Good hands, fair dealer. I’ll mark where they hole up — tell them the description of me and you’ll do fine.”',
 ];
 
+// Day cycle ---------------------------------------------------------------
+export const ESCALATION_LINES = [
+  'More of the dead in the streets today than yesterday. They come in from the edges at night.',
+  'New silhouettes stand in the streets this morning, where yesterday there were none.',
+  'The city is filling up again. Every day the count out there gets a little worse.',
+];
+export const NIGHTFALL_LINES = [
+  'Dark. The dead move more at night.',
+  'The light goes. Out in the streets, the shuffling picks up.',
+];
+export const DAWN_LINES = [
+  'First light. The cold slows the dead to a stumble.',
+  'Dawn. The streets are as quiet now as they ever get.',
+];
+
 // Grit --------------------------------------------------------------------
 export const GRIT_LEVELS = [
   { name: 'Sure-footed', desc: 'moving costs less energy' },

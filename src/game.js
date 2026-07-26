@@ -15,7 +15,8 @@ import {
   REST_LINES, MED_LINES, LISTEN_QUIET, LISTEN_ZED, SCOUT_START, LISTEN_START,
   BARRICADE_LINES, BOTTLE_LINES, RAIDER_NAMES, RAIDER_MEET, RAIDER_DEMAND,
   RAIDER_PAY, RAIDER_WIN, RAIDER_LOSE, RAIDER_BACK, RAIDER_WARN, RAIDER_PEACE_NOTE,
-  GRIT_LEVELS, GRIT_UP, BLEED_START, BLEED_STOP, BLEED_WARN, fill,
+  GRIT_LEVELS, GRIT_UP, BLEED_START, BLEED_STOP, BLEED_WARN,
+  ESCALATION_LINES, NIGHTFALL_LINES, DAWN_LINES, fill,
 } from './data/text.js';
 
 const DAY_MIN = 24 * 60;
@@ -35,8 +36,8 @@ export const COSTS = {
   move: { energy: 4, minutes: 15 },
   enter: { energy: 3, minutes: 10 },
   room: { energy: 2, minutes: 5 },
-  search: { energy: 8, minutes: 40 },
-  rest: { energy: 0, minutes: 45 },
+  search: { energy: 6, minutes: 30 },
+  rest: { energy: 0, minutes: 30 },
   wait: { energy: 0, minutes: 30 },
   talk: { energy: 1, minutes: 10 },
   give: { energy: 1, minutes: 5 },
@@ -81,6 +82,8 @@ export class Game {
       shelters: {},
       lastGritDay: 1,
       prevPos: null,
+      phase: 'dawn',
+      scoutInfo: null,
       noise: 0,
       mode: 'explore', // explore | encounter | talk | dead
       talkTo: null,
@@ -108,6 +111,13 @@ export class Game {
   get weather() { return weatherForDay(this.s.seed, this.s.day); }
   get hour() { return this.s.minutes / 60; }
   get isNight() { return this.hour < 6 || this.hour >= 20; }
+  // dawn torpor: the cold hours slow the dead; night is theirs
+  get dayPhase() {
+    const h = this.hour;
+    if (h >= 5 && h < 9) return 'dawn';
+    if (h >= 20 || h < 5) return 'night';
+    return 'day';
+  }
   get totalMinutes() { return (this.s.day - 1) * DAY_MIN + this.s.minutes; }
 
   timeString() {
@@ -259,6 +269,14 @@ export class Game {
           this.s.lastGritDay = this.s.day;
           this.addGrit(3);
         }
+        this.spawnDrifters(2 + Math.floor(this.s.day / 3));
+      }
+      // the day has phases: log nightfall and first light once each
+      const phase = this.dayPhase;
+      if (phase !== this.s.phase) {
+        this.s.phase = phase;
+        if (phase === 'night') this.say(this.live().pick(NIGHTFALL_LINES), 'system');
+        else if (phase === 'dawn') this.say(this.live().pick(DAWN_LINES), 'system');
       }
       const hours = step / 60;
       st.hunger = Math.max(0, st.hunger - 2.5 * hours);
@@ -307,6 +325,23 @@ export class Game {
     if (this.s.conditions.bleeding && r.chance(0.4)) this.say(r.pick(BLEED_WARN), 'danger');
   }
 
+  // Every night more of them drift in from the edges. The count only grows.
+  spawnDrifters(count) {
+    const s = this.s;
+    if (s.zombies.length >= 80) return;
+    const r = this.live();
+    let spawned = 0;
+    for (let i = 0; i < count * 8 && spawned < count; i++) {
+      const edge = r.int(0, 3);
+      const x = edge === 0 ? 0 : edge === 1 ? CITY_W - 1 : r.int(0, CITY_W - 1);
+      const y = edge <= 1 ? r.int(0, CITY_H - 1) : edge === 2 ? 0 : CITY_H - 1;
+      if (Math.abs(x - s.pos.x) + Math.abs(y - s.pos.y) < 4) continue;
+      s.zombies.push({ id: `z${s.zombies.length}-${s.day}`, x, y, b: null, r: null });
+      spawned++;
+    }
+    if (spawned && r.chance(0.7)) this.say(r.pick(ESCALATION_LINES), 'warn');
+  }
+
   // ---- zombie simulation -------------------------------------------------
 
   stepZombies(steps = 1) {
@@ -320,17 +355,22 @@ export class Game {
 
   stepOneZombie(z, r) {
     const p = this.s.pos;
+    const phase = this.dayPhase;
     if (z.hunt > 0) z.hunt -= 1;
     if (z.b === null) {
       const dist = Math.abs(z.x - p.x) + Math.abs(z.y - p.y);
-      const smell = (this.s.noise > 0 ? 3 : 2) + (this.s.conditions.bleeding ? 1 : 0);
+      let smell = 2 + Math.min(2, this.s.noise) + (this.s.conditions.bleeding ? 1 : 0);
+      if (phase === 'night') smell += 1;
+      if (phase === 'dawn') smell = Math.max(1, smell - 1);
+      // loud, sustained noise turns nearby dead into hunters
+      if (this.s.noise >= 3 && dist <= smell) z.hunt = Math.max(z.hunt || 0, 2);
       const hunting = z.hunt > 0 && dist <= 6;
-      if (p.b === null && dist > 0 && (hunting || (dist <= smell && r.chance(0.7)))) {
+      if (p.b === null && dist > 0 && (hunting || (dist <= smell && r.chance(phase === 'dawn' ? 0.4 : 0.7)))) {
         // shamble toward the player; hunters do not lose the trail
         const dx = Math.sign(p.x - z.x), dy = Math.sign(p.y - z.y);
         if (dx !== 0 && (dy === 0 || r.chance(0.5))) z.x += dx; else if (dy !== 0) z.y += dy;
         if (z.hunt > 0 && locKey(z) === locKey(p)) z.followed = true;
-      } else if (r.chance(0.45)) {
+      } else if (r.chance(phase === 'night' ? 0.6 : phase === 'dawn' ? 0.25 : 0.45)) {
         const n = r.pick(neighbors(z.x, z.y));
         z.x = n.x; z.y = n.y;
       } else if (r.chance(0.1)) {
@@ -467,7 +507,7 @@ export class Game {
     for (const exit of this.exits()) {
       acts.push({
         id: exit.kind, arg: exit.arg, icon: exit.icon, label: exit.label,
-        sub: exit.sub, cost: exit.cost,
+        sub: exit.sub, cost: exit.cost, threat: exit.threat !== undefined ? exit.threat : null,
         disabled: !canAfford(exit.cost) || exit.locked,
         reason: exit.locked ? 'locked' : !canAfford(exit.cost) ? 'too tired' : null,
       });
@@ -526,6 +566,9 @@ export class Game {
     const s = this.s;
     const out = [];
     if (!this.indoors) {
+      // recent scout intel from this spot stays pinned to the compass a while
+      const si = s.scoutInfo;
+      const intelFresh = si && si.at === `${s.pos.x},${s.pos.y}` && (s.turn - si.turn) <= 6;
       for (const n of neighbors(s.pos.x, s.pos.y)) {
         const cell = getCell(s.seed, n.x, n.y);
         const seen = s.visited[`c:${n.x},${n.y}`];
@@ -533,6 +576,7 @@ export class Game {
           kind: 'move', arg: n.dir, icon: 'move',
           label: `${n.dir[0].toUpperCase() + n.dir.slice(1)}`,
           sub: seen ? cell.name : 'unexplored',
+          threat: intelFresh ? (si.dirs[n.dir] || 0) : null,
           cost: this.moveCost(),
         });
       }
@@ -670,9 +714,11 @@ export class Game {
   doScout() {
     const r = this.live();
     this.say(r.pick(SCOUT_START), 'info');
+    this.s.scoutInfo = { turn: this.s.turn, at: `${this.s.pos.x},${this.s.pos.y}`, dirs: {} };
     for (const n of neighbors(this.s.pos.x, this.s.pos.y)) {
       const cell = getCell(this.s.seed, n.x, n.y);
       const zeds = this.s.zombies.filter((z) => z.x === n.x && z.y === n.y && z.b === null).length;
+      this.s.scoutInfo.dirs[n.dir] = zeds;
       const bits = [];
       bits.push(zeds === 0 ? 'no movement' : zeds === 1 ? 'one of the dead in the open' : `${zeds} of the dead in the open`);
       if (cell.buildings.length) bits.push(cell.buildings.map((b) => b.label).slice(0, 2).join(', '));
@@ -1239,6 +1285,7 @@ export class Game {
       s.shelters = s.shelters || {};
       s.lastGritDay = s.lastGritDay || s.day;
       if (s.prevPos === undefined) s.prevPos = null;
+      s.phase = s.phase || g.dayPhase;
       // migrate pre-feed saves: give log entries sequence numbers
       if (Array.isArray(s.log)) {
         let seq = 0;

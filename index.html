@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>SURVREL — a city, after</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext y='13' font-size='13'%3E%E2%9A%A1%3C/text%3E%3C/svg%3E">
-  <link rel="stylesheet" href="style.css?v=0.12">
+  <link rel="stylesheet" href="style.css?v=0.13">
 </head>
 <body>
   <div id="app">
@@ -22,6 +22,14 @@
     <div id="menu" class="hidden">
       <div class="menu-head">SURVREL <span id="menu-version"></span></div>
       <div id="menu-note"></div>
+      <div class="menu-head">How to survive</div>
+      <ul id="menu-help">
+        <li>Every action costs energy. Food and sleep bring it back.</li>
+        <li>Cold and hunger kill slowly. Wounds that bleed kill faster.</li>
+        <li>Noise draws the dead. Scout and listen before you commit.</li>
+        <li>Night belongs to them. Dawn is the safest hour to move.</li>
+        <li>Help people, and barricade a room to call your own.</li>
+      </ul>
       <button id="btn-new" class="menu-item">↻ Start a new city</button>
     </div>
 
@@ -45,6 +53,6 @@
 
     <div id="death" class="hidden"><div id="death-inner"></div></div>
   </div>
-  <script type="module" src="src/main.js?v=0.12"></script>
+  <script type="module" src="src/main.js?v=0.13"></script>
 </body>
 </html>

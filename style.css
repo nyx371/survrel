@@ -76,6 +76,12 @@ button.ghost:hover { color: var(--ink); border-color: var(--ink-faint); }
 }
 .menu-head span { color: var(--ink-faint); letter-spacing: 0.05em; font-weight: 400; }
 #menu-note { font-size: 12px; color: var(--ink-faint); line-height: 1.45; margin-bottom: 10px; }
+#menu-help {
+  list-style: none; margin-bottom: 10px;
+  font-size: 12px; color: var(--ink-dim); line-height: 1.5;
+}
+#menu-help li { padding-left: 12px; position: relative; }
+#menu-help li::before { content: '·'; position: absolute; left: 2px; color: var(--accent); }
 button.menu-item {
   display: block; width: 100%; text-align: left;
   background: var(--panel); border: 1px solid var(--line); color: var(--ink);
@@ -92,6 +98,7 @@ button.menu-item:hover { border-color: var(--accent); }
 }
 .stat svg.gi { width: 1.05em; height: 1.05em; }
 .stat .bar { flex: 1; height: 5px; background: var(--panel-2); border-radius: 3px; overflow: hidden; }
+.stat-num { font: 10px 'Courier New', monospace; color: var(--ink-faint); min-width: 17px; text-align: right; }
 .stat .bar-fill { height: 100%; border-radius: 3px; transition: width 0.35s ease; }
 .stat-energy { color: var(--energy); } .stat-energy .bar-fill { background: var(--energy); }
 .stat-health { color: var(--health); } .stat-health .bar-fill { background: var(--health); }
@@ -110,6 +117,11 @@ button.menu-item:hover { border-color: var(--accent); }
   font: 10px 'Courier New', monospace; letter-spacing: 0.12em; text-transform: uppercase;
   color: var(--ink-faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
+#locbar .noise {
+  margin-left: auto; flex: none; letter-spacing: 0.1em; text-transform: none;
+  color: var(--hunger); display: inline-flex; align-items: center; gap: 4px;
+}
+#locbar .noise svg.gi { width: 1.1em; height: 1.1em; }
 
 /* feed — the one scrollable region --------------------------------------- */
 #feed {
@@ -210,6 +222,16 @@ button.nav-btn:hover:not(:disabled) { border-color: var(--accent); }
 .nav-dest {
   font-size: 9.5px; color: var(--ink-faint); line-height: 1.2;
   max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.nav-threat {
+  position: absolute; top: -6px; left: -4px;
+  background: var(--danger); color: var(--bg);
+  border-radius: 999px; min-width: 15px; padding: 1px 4px;
+  font: 700 10px 'Courier New', monospace; line-height: 1.3;
+}
+.nav-clear {
+  position: absolute; top: -8px; left: 1px;
+  color: var(--accent); font: 700 16px/1 Georgia, serif;
 }
 
 #std { display: flex; gap: 6px; padding-top: 4px; }

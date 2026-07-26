@@ -90,12 +90,17 @@ export class UI {
       <div class="stat stat-${key} ${val < 25 ? 'stat-low' : ''} ${extra}" title="${key}: ${Math.round(val)}${extra ? ' — bleeding' : ''}">
         ${icon(ic)}
         <div class="bar"><div class="bar-fill" style="width:${Math.max(0, Math.min(100, val))}%"></div></div>
+        <span class="stat-num">${Math.round(val)}</span>
       </div>`).join('');
   }
 
   renderLocbar() {
     const { title, sub } = this.g.locTitle();
-    $('#locbar').innerHTML = `<b>${title}</b><span>${sub}</span>`;
+    const noise = Math.min(4, Math.round(this.g.s.noise || 0));
+    const noiseHtml = noise > 0
+      ? `<span class="noise" title="noise draws the dead">${icon('radio')}${'●'.repeat(noise)}${'○'.repeat(4 - noise)}</span>`
+      : '';
+    $('#locbar').innerHTML = `<b>${title}</b><span>${sub}</span>${noiseHtml}`;
   }
 
   renderFeed() {
@@ -172,9 +177,10 @@ export class UI {
       nav.classList.toggle('hidden', !moves.length);
       nav.innerHTML = moves.map((a) => `
         <button class="nav-btn" data-dir="${a.arg}" ${a.disabled ? 'disabled' : ''}
-          title="${a.label} — ${a.sub || ''} (${a.cost.energy}⚡ ${a.cost.minutes}′)">
+          title="${a.label} — ${a.sub || ''}${a.threat ? ` — ${a.threat} of the dead seen` : a.threat === 0 ? ' — looked clear' : ''} (${a.cost.energy}⚡ ${a.cost.minutes}′)">
           <span class="nav-arrow">${ARROWS[a.arg] || '·'}</span>
           <span class="nav-dest">${a.sub || ''}</span>
+          ${a.threat ? `<span class="nav-threat">${a.threat}</span>` : a.threat === 0 ? '<span class="nav-clear">·</span>' : ''}
           ${costBadge(a.cost)}
         </button>`).join('');
       nav.querySelectorAll('button.nav-btn').forEach((btn) => {

@@ -3,6 +3,10 @@
 // index.html so browsers fetch the new files immediately.
 export const CHANGELOG = [
   {
+    v: '0.13',
+    note: 'The city turns against you: more dead drift in from the edges every night, they roam harder after dark and slow at first light — dawn is your hour. Noise is now visible and dangerous: stay loud and the nearby dead start hunting. Scout intel pins to the compass, stat bars show numbers, searching and resting are quicker, and the menu explains how to survive.',
+  },
+  {
     v: '0.12',
     note: 'The city gets deeper: scout blocks and listen at doors before you commit; barricade rooms into shelters; throw bottles to pull the dead away; deep wounds bleed until wrapped — and the dead smell blood. Raider gangs hold territory and demand tolls: pay, stand your ground, or back away. Friends now warn you about gangs and vouch for other survivors. And the city teaches: grit builds with every day survived and every close call, unlocking five hard-won edges.',
   },
