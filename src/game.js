@@ -16,7 +16,9 @@ import {
   BARRICADE_LINES, BOTTLE_LINES, RAIDER_NAMES, RAIDER_MEET, RAIDER_DEMAND,
   RAIDER_PAY, RAIDER_WIN, RAIDER_LOSE, RAIDER_BACK, RAIDER_WARN, RAIDER_PEACE_NOTE,
   GRIT_LEVELS, GRIT_UP, BLEED_START, BLEED_STOP, BLEED_WARN,
-  ESCALATION_LINES, NIGHTFALL_LINES, DAWN_LINES, fill,
+  ESCALATION_LINES, NIGHTFALL_LINES, DAWN_LINES,
+  FIGHT_KILL, FIGHT_FAIL, FIGHT_LAST_DOWN, TRADE_LINES,
+  STASH_FIND, STASH_OPEN, STASH_LOCKED_NOTE, fill,
 } from './data/text.js';
 
 const DAY_MIN = 24 * 60;
@@ -46,6 +48,9 @@ export const COSTS = {
   fire: { energy: 3, minutes: 20 },
   pry: { energy: 6, minutes: 15 },
   scout: { energy: 3, minutes: 10 },
+  fight: { energy: 12, minutes: 10 },
+  stash: { energy: 2, minutes: 10 },
+  trade: { energy: 1, minutes: 10 },
   listen: { energy: 1, minutes: 5 },
   barricade: { energy: 6, minutes: 30 },
   throw: { energy: 2, minutes: 5 },
@@ -54,6 +59,24 @@ export const COSTS = {
 
 // Grit: experience thresholds for levels 1..5 (perks in GRIT_LEVELS).
 const GRIT_THRESH = [10, 25, 45, 70, 100];
+
+// What each role brings to the table in a trade.
+const TRADE_GIVES = {
+  medic: ['bandage', 'pills', 'medkit'],
+  scavenger: ['crowbar', 'flashlight', 'rope', 'map_scrap'],
+  cook: ['canned_food', 'berries', 'chocolate'],
+  radio_op: ['battery', 'map_scrap'],
+  watchman: ['matches', 'knife'],
+  mechanic: ['battery', 'crowbar', 'matches'],
+};
+const TRADE_WANTS = ['canned_food', 'water', 'soda', 'bandage', 'battery', 'matches', 'rope', 'bottle', 'cracker'];
+
+// Loot behind a locked stash: worth carrying a key for.
+const STASH_TABLE = [
+  ['medkit', 2], ['canned_food', 2], ['sleeping_bag', 1.5], ['knife', 1.5],
+  ['crowbar', 1.5], ['flashlight', 1.5], ['battery', 1.5], ['pills', 1.5],
+  ['chocolate', 1], ['map_scrap', 1],
+];
 
 export class Game {
   constructor(seed) {
@@ -74,7 +97,7 @@ export class Game {
       searched: {},
       unlocked: {},
       zombies: initialZombies(seed),
-      survivors: genSurvivors(seed).map((sv) => ({ ...sv, trust: 0, met: false, introduced: false, given: 0, giftDay: 0, warned: false, vouched: false })),
+      survivors: genSurvivors(seed).map((sv) => ({ ...sv, trust: 0, met: false, introduced: false, given: 0, giftDay: 0, tradeDay: 0, warned: false, vouched: false })),
       raiders: genRaiders(seed).map((g) => ({ ...g, met: false, respect: false, peaceUntil: 0, lastShakeDay: 0 })),
       raiderKnown: {},
       grit: { xp: 0, level: 0 },
@@ -84,6 +107,8 @@ export class Game {
       prevPos: null,
       phase: 'dawn',
       scoutInfo: null,
+      kills: 0,
+      stashes: {},
       noise: 0,
       mode: 'explore', // explore | encounter | talk | dead
       talkTo: null,
@@ -168,6 +193,30 @@ export class Game {
     return this.gritLevel >= 1 ? { energy: 3, minutes: 15 } : COSTS.move;
   }
 
+  // odds of putting one of the dead down with what you carry
+  fightChance() {
+    const s = this.s;
+    const weapon = (s.inv.knife || 0) > 0 ? 0.5 : (s.inv.crowbar || 0) > 0 ? 0.45 : 0;
+    if (!weapon) return 0;
+    let p = weapon + 0.05 * this.gritLevel;
+    if (this.zombiesHere().length > 1) p -= 0.15;
+    if (s.stats.energy < 30) p -= 0.10;
+    return Math.max(0.15, Math.min(0.85, p));
+  }
+
+  // one deal per survivor per day, deterministic from the world
+  tradeOffer(sv) {
+    const r = rngFor(this.s.seed, 'trade', sv.id, this.s.day);
+    const wants = r.pick(TRADE_WANTS);
+    let gives = r.pick(TRADE_GIVES[sv.role] || ['map_scrap']);
+    if (gives === wants) gives = 'map_scrap';
+    return { wants, gives };
+  }
+
+  stashAt(k) {
+    return rngFor(this.s.seed, 'stash', k).chance(0.14);
+  }
+
   // pick from a pool without repeating the previous pick for that key —
   // for lines the player can trigger back to back (rest, eat, drink)
   pickVaried(pool, key) {
@@ -212,6 +261,7 @@ export class Game {
     let parts;
     if (this.indoors) {
       parts = describeRoom(this.s.seed, this.here, this.building, this.s.pos.r, vc);
+      if (this.s.stashes[locKey(this.s.pos)] === 'found') parts.push(STASH_LOCKED_NOTE);
       if (this.s.pos.r === 0) {
         const sv = this.survivorInBuilding();
         if (sv && !sv.met) parts.push('Signs of habitation: swept floor, a cold fire ring, the smell of recent cooking. Somebody lives here.');
@@ -466,6 +516,14 @@ export class Game {
           disabled: !affordable, reason: affordable ? null : 'too tired',
         });
       }
+      const fp = this.fightChance();
+      if (fp > 0) {
+        acts.push({
+          id: 'fight', icon: 'knife', label: 'Fight',
+          sub: fp >= 0.6 ? 'good odds' : fp >= 0.4 ? 'even odds' : 'bad odds',
+          cost: COSTS.fight,
+        });
+      }
       if ((s.inv.bottle || 0) > 0) {
         acts.push({
           id: 'throw_bottle', icon: 'soda', label: 'Throw a bottle', sub: 'pull them toward the noise',
@@ -491,6 +549,16 @@ export class Game {
         const needCount = s.inv[sv.need] || 0;
         if (sv.trust < 3 && needCount > 0) {
           acts.push({ id: 'give', arg: sv.id, icon: 'give', label: `Give ${itemName(sv.need)}`, sub: `${needCount} carried`, cost: COSTS.give });
+        }
+        if (sv.trust >= 1 && sv.tradeDay < s.day) {
+          const offer = this.tradeOffer(sv);
+          const have = (s.inv[offer.wants] || 0) > 0;
+          acts.push({
+            id: 'trade', arg: sv.id, icon: 'trust',
+            label: `Trade ${itemName(offer.wants).toLowerCase()}`,
+            sub: `for ${itemName(offer.gives).toLowerCase()}`,
+            cost: COSTS.trade, disabled: !have, reason: have ? null : 'you have none',
+          });
         }
         if (sv.trust >= 2 && sv.giftDay < s.day) {
           acts.push({ id: 'ask_help', arg: sv.id, icon: SURVIVOR_ROLES[sv.role].icon, label: 'Ask for help', sub: SURVIVOR_ROLES[sv.role].perk3, cost: COSTS.talk });
@@ -536,6 +604,14 @@ export class Game {
       acts.push({
         id: 'listen', icon: 'door', label: 'Listen at the doors', sub: 'what waits in the next rooms',
         cost: COSTS.listen, disabled: !canAfford(COSTS.listen), reason: canAfford(COSTS.listen) ? null : 'too tired',
+      });
+    }
+
+    // a found lockbox with a key in hand
+    if (this.indoors && s.stashes[sk] === 'found' && (s.inv.key || 0) > 0) {
+      acts.push({
+        id: 'open_stash', icon: 'key', label: 'Open the lockbox', sub: 'uses the odd key',
+        cost: COSTS.stash, disabled: !canAfford(COSTS.stash), reason: canAfford(COSTS.stash) ? null : 'too tired',
       });
     }
 
@@ -638,6 +714,9 @@ export class Game {
       listen: () => this.doListen(),
       barricade: () => this.doBarricade(),
       throw_bottle: () => this.doThrowBottle(),
+      fight: () => this.doFight(),
+      trade: () => this.doTrade(arg),
+      open_stash: () => this.doOpenStash(),
       raider_give: () => this.doRaiderGive(),
       raider_refuse: () => this.doRaiderRefuse(),
       raider_back: () => this.doRaiderBack(),
@@ -788,6 +867,84 @@ export class Game {
     this.checkEncounter();
   }
 
+  // ---- fighting -----------------------------------------------------------
+
+  doFight() {
+    const s = this.s;
+    const r = this.live();
+    const zeds = this.zombiesHere();
+    if (!zeds.length) return;
+    const p = this.fightChance();
+    if (p <= 0) return;
+    s.noise += 2;
+    s.stats.energy = Math.max(0, s.stats.energy - COSTS.fight.energy);
+    if (r.chance(p)) {
+      const z = zeds[0];
+      s.zombies = s.zombies.filter((x) => x !== z);
+      s.kills += 1;
+      this.say(r.pick(FIGHT_KILL), 'safe');
+      this.addGrit(4);
+      const rest = this.zombiesHere();
+      if (!rest.length) {
+        s.mode = 'explore';
+        this.say(r.pick(FIGHT_LAST_DOWN), 'safe');
+      } else {
+        this.say(fill(r, r.pick(TABLES.zed_present)), 'danger');
+      }
+    } else {
+      const dmg = r.int(8, 16);
+      s.stats.health -= dmg;
+      this.say(`${r.pick(FIGHT_FAIL)} (−${dmg} health)`, 'danger');
+      if (s.stats.health <= 0) {
+        s.stats.health = 0;
+        this.die('zed');
+        return;
+      }
+      if (!s.conditions.bleeding && (dmg >= 13 || r.chance(0.3))) {
+        s.conditions.bleeding = true;
+        this.say(r.pick(BLEED_START), 'danger');
+      }
+    }
+    this.passTime(COSTS.fight.minutes);
+    if (s.mode === 'dead') return;
+    this.checkEncounter();
+  }
+
+  // ---- barter -------------------------------------------------------------
+
+  doTrade(id) {
+    const sv = this.s.survivors.find((v) => v.id === id);
+    if (!sv || sv.trust < 1 || sv.tradeDay >= this.s.day) return;
+    const offer = this.tradeOffer(sv);
+    const s = this.s;
+    if ((s.inv[offer.wants] || 0) <= 0) return;
+    s.inv[offer.wants] -= 1;
+    if (s.inv[offer.wants] <= 0) delete s.inv[offer.wants];
+    s.inv[offer.gives] = (s.inv[offer.gives] || 0) + 1;
+    sv.tradeDay = s.day;
+    this.say(this.live().pick(TRADE_LINES), 'talk');
+    this.passTime(COSTS.trade.minutes);
+  }
+
+  // ---- stashes ------------------------------------------------------------
+
+  doOpenStash() {
+    const s = this.s;
+    const k = locKey(s.pos);
+    if (s.stashes[k] !== 'found' || (s.inv.key || 0) <= 0) return;
+    s.inv.key -= 1;
+    if (s.inv.key <= 0) delete s.inv.key;
+    s.stashes[k] = 'opened';
+    const r = this.live();
+    const found = [];
+    for (let i = 0; i < 3; i++) found.push(r.weighted(STASH_TABLE));
+    for (const it of found) s.inv[it] = (s.inv[it] || 0) + 1;
+    const names = found.map((i) => itemName(i).toLowerCase()).join(', ');
+    this.say(fill(r, r.pick(STASH_OPEN), { itemlist: names }), 'loot');
+    this.addGrit(2);
+    this.spend(COSTS.stash);
+  }
+
   // ---- raiders ------------------------------------------------------------
 
   activeRaider() {
@@ -904,6 +1061,11 @@ export class Game {
       if (count === 0) this.addGrit(1);
     } else {
       this.say(fill(this.live(), this.live().pick(TABLES.search_empty)), 'info');
+    }
+    // some rooms hide a locked stash — found on the first thorough search
+    if (count === 0 && this.indoors && !s.stashes[k] && this.stashAt(k)) {
+      s.stashes[k] = 'found';
+      this.say(this.live().pick(STASH_FIND), 'loot');
     }
     this.spend(COSTS.search);
   }
@@ -1286,6 +1448,9 @@ export class Game {
       s.lastGritDay = s.lastGritDay || s.day;
       if (s.prevPos === undefined) s.prevPos = null;
       s.phase = s.phase || g.dayPhase;
+      s.kills = s.kills || 0;
+      s.stashes = s.stashes || {};
+      for (const sv of s.survivors || []) { if (sv.tradeDay === undefined) sv.tradeDay = 0; }
       // migrate pre-feed saves: give log entries sequence numbers
       if (Array.isArray(s.log)) {
         let seq = 0;

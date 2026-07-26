@@ -776,6 +776,41 @@ export const DAWN_LINES = [
   'Dawn. The streets are as quiet now as they ever get.',
 ];
 
+// Fighting -----------------------------------------------------------------
+export const FIGHT_KILL = [
+  'You step inside its reach and put it down for good. It does not get up.',
+  'The steel goes in where it needs to go. The body drops and stays down.',
+  'You swing until it stops moving. Then you make sure it has stopped.',
+  'It grabs, you turn, and the weight of the blow carries through. It folds onto the pavement.',
+];
+export const FIGHT_FAIL = [
+  'Your swing goes wide and it is inside your guard — teeth and fingers, and you pay for the miss.',
+  'The blow glances off its shoulder. It drags you close before you break loose, and it costs you.',
+  'You misjudge the distance. It has your arm for one bad second.',
+];
+export const FIGHT_LAST_DOWN = [
+  'Quiet again. Your hands are shaking. The street is yours.',
+  'It is done. You wipe the steel clean on its coat and breathe.',
+];
+
+// Barter --------------------------------------------------------------------
+export const TRADE_LINES = [
+  'Goods change hands. “Anytime,” they say, and mean it.',
+  'A fair trade, by the current market. Both sides nod.',
+  'They check the goods once, twice, then hand over their side of it.',
+];
+
+// Stashes -------------------------------------------------------------------
+export const STASH_FIND = [
+  'Beneath everything else: a steel lockbox, bolted to the floor. The lock wants a key.',
+  'Behind a false panel, a strongbox with a heavy padlock. Someone prepared for this, and never came back for it.',
+];
+export const STASH_OPEN = [
+  'The key turns. Inside, packed tight and dry: {itemlist}.',
+  'The lock gives. Whoever filled this box knew what mattered: {itemlist}.',
+];
+export const STASH_LOCKED_NOTE = 'The lockbox is still here, still locked. It wants a key.';
+
 // Grit --------------------------------------------------------------------
 export const GRIT_LEVELS = [
   { name: 'Sure-footed', desc: 'moving costs less energy' },

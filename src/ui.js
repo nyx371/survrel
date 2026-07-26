@@ -135,10 +135,10 @@ export class UI {
     // contextual chips: escape tactics in an encounter, otherwise the
     // situational stuff (doors, buildings, people)
     const ctxIds = encounter
-      ? ['set_verb', 'throw_bottle']
+      ? ['set_verb', 'fight', 'throw_bottle']
       : raider
         ? ['raider_give', 'raider_refuse', 'raider_back']
-        : ['enter', 'goroom', 'exit_building', 'pry', 'talk', 'give', 'ask_help', 'sleep_safe', 'leave_talk', 'scout', 'listen', 'barricade'];
+        : ['enter', 'goroom', 'exit_building', 'pry', 'talk', 'give', 'trade', 'ask_help', 'sleep_safe', 'leave_talk', 'scout', 'listen', 'barricade', 'open_stash'];
     const ctx = acts.filter((a) => ctxIds.includes(a.id));
     const ctxEl = $('#ctx');
     ctxEl.classList.toggle('hidden', !ctx.length);
@@ -294,7 +294,7 @@ export class UI {
     $('#death-inner').innerHTML = `
       <div class="death-icon">${icon('danger')}</div>
       <h2>${causes[g.s.deathCause] || 'The city took you.'}</h2>
-      <p class="death-days">You survived <b>${g.s.day}</b> day${g.s.day === 1 ? '' : 's'}.</p>
+      <p class="death-days">You survived <b>${g.s.day}</b> day${g.s.day === 1 ? '' : 's'}.${g.s.kills ? ` You put ${g.s.kills} of the dead down for good.` : ''}</p>
       <button id="btn-restart" class="big">${icon('run')} Try again</button>`;
     $('#btn-restart').addEventListener('click', () => this.cb.onNewGame());
   }
